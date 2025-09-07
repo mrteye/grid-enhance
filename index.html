@@ -1,120 +1,120 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Grid Enhancer (Nano-Banana Edition)</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grid Enhance Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
 </head>
 <body class="overflow-hidden">
 
 <div id="app" class="app-container p-4 space-y-4">
 
-<div id="welcome-screen" class="flex flex-col items-center justify-center h-full text-center">
-<h1 class="text-4xl font-bold tracking-tight text-white sm:text-5xl">AI Grid Enhancer</h1>
-<p class="mt-4 text-lg text-gray-400">Powered by the <span class="font-bold text-yellow-300">Nano-Banana</span> API</p>
-<div class="mt-8">
-<button id="upload-base-image-btn" class="btn btn-primary text-base px-8 py-3">Upload Base Image</button>
-<button id="load-project-btn-welcome" class="btn btn-secondary text-base px-8 py-3 ml-4">Load Project (.json)</button>
-</div>
-</div>
+    <div id="welcome-screen" class="flex flex-col items-center justify-center h-full text-center">
+        <h1 class="text-4xl font-bold tracking-tight text-white sm:text-5xl">Grid Enhance Engine</h1>
+        <p class="mt-4 text-lg text-gray-400">An AI-Powered Tool for Image Expansion</p>
+        <div class="mt-8">
+            <button id="upload-base-image-btn" class="btn btn-primary text-base px-8 py-3">Upload Image</button>
+            <button id="load-project-btn-welcome" class="btn btn-secondary text-base px-8 py-3 ml-4">Load Project (.json)</button>
+        </div>
+    </div>
 
-<div id="editor-view" class="hidden app-container">
-<div class="control-panel p-4 bg-gray-800/50 rounded-lg border border-gray-700 space-y-3">
-<div class="flex flex-wrap items-center justify-between gap-4">
-<div class="flex items-center gap-4">
-<h2 id="project-title-display" class="text-xl font-bold text-white">Untitled Project</h2>
-<button id="edit-metadata-btn" class="btn btn-secondary text-xs">Edit Info</button>
-</div>
-<div class="flex items-center gap-2">
-<label for="api-key-input" class="text-sm font-medium text-gray-300 whitespace-nowrap">API Key:</label>
-<input type="password" id="api-key-input" placeholder="Enter your Google AI API Key" class="input-field w-64">
-</div>
-</div>
-<div class="flex flex-wrap items-center justify-between gap-4">
-<div class="flex flex-wrap items-center gap-2">
-<label for="grid-select" class="text-sm font-medium text-gray-300">Grid:</label>
-<select id="grid-select" class="input-field w-28">
-<option>1x2</option><option>2x1</option><option selected>2x2</option><option>2x3</option>
-<option>3x2</option><option>3x3</option><option>1x3</option><option>3x1</option>
-<option>4x4</option><option>5x5</option><option>10x10</option>
-</select>
-<div class="flex items-center">
-<input id="preview-toggle" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 bg-gray-700">
-<label for="preview-toggle" class="ml-2 block text-sm text-gray-300">Hide Grid</label>
-</div>
-</div>
-<div class="flex flex-wrap items-center gap-2">
-<button id="save-project-btn" class="btn btn-secondary">Save Project</button>
-<button id="load-project-btn-editor" class="btn btn-secondary">Load Project</button>
-<button id="export-image-btn" class="btn btn-primary">Export Image</button>
-</div>
-</div>
-</div>
+    <div id="editor-view" class="hidden app-container">
+        <div class="control-panel p-4 bg-gray-800/50 rounded-lg border border-gray-700 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div class="flex items-center gap-4">
+                    <h2 id="project-title-display" class="text-xl font-bold text-white">Untitled Project</h2>
+                    <button id="edit-metadata-btn" class="btn btn-secondary text-xs">Edit Info</button>
+                </div>
+                <div class="flex items-center gap-2">
+                    <label for="api-key-input" class="text-sm font-medium text-gray-300 whitespace-nowrap">Gemini API Key:</label>
+                    <input type="password" id="api-key-input" placeholder="Enter your Google AI API Key" class="input-field w-64">
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div class="flex flex-wrap items-center gap-2">
+                    <label for="grid-select" class="text-sm font-medium text-gray-300">Grid:</label>
+                    <select id="grid-select" class="input-field w-28">
+                        <option>1x2</option><option>2x1</option><option selected>2x2</option><option>2x3</option>
+                        <option>3x2</option><option>3x3</option><option>1x3</option><option>3x1</option>
+                        <option>4x4</option><option>5x5</option><option>10x10</option>
+                    </select>
+                    <div class="flex items-center">
+                        <input id="preview-toggle" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 bg-gray-700">
+                        <label for="preview-toggle" class="ml-2 block text-sm text-gray-300">Hide Grid</label>
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button id="save-project-btn" class="btn btn-secondary">Save Project</button>
+                    <button id="load-project-btn-editor" class="btn btn-secondary">Load Project</button>
+                    <button id="export-image-btn" class="btn btn-primary">Export Image</button>
+                </div>
+            </div>
+        </div>
 
-<div id="canvas-container" class="canvas-container">
-<canvas id="main-canvas"></canvas>
-</div>
-</div>
+        <div id="canvas-container" class="canvas-container">
+            <canvas id="main-canvas"></canvas>
+        </div>
+    </div>
 </div>
 
 <div id="metadata-modal" class="modal-backdrop hidden">
-<div class="modal-content">
-<h3 class="text-lg font-bold leading-6 text-white">Project Information</h3>
-<div class="mt-4 space-y-4">
-<div>
-<label for="meta-title" class="label-text">Title</label>
-<input type="text" id="meta-title" class="input-field">
-</div>
-<div>
-<label for="meta-desc" class="label-text">Description</label>
-<textarea id="meta-desc" rows="3" class="input-field"></textarea>
-</div>
-<div>
-<label for="meta-author" class="label-text">Author</label>
-<input type="text" id="meta-author" class="input-field">
-</div>
-<div>
-<label for="meta-version" class="label-text">Version Note</label>
-<input type="text" id="meta-version" class="input-field">
-</div>
-</div>
-<div class="mt-6 flex justify-end space-x-3">
-<button id="cancel-metadata-btn" class="btn btn-secondary">Cancel</button>
-<button id="save-metadata-btn" class="btn btn-primary">Save</button>
-</div>
-</div>
+    <div class="modal-content">
+        <h3 class="text-lg font-bold leading-6 text-white">Project Information</h3>
+        <div class="mt-4 space-y-4">
+            <div>
+                <label for="meta-title" class="label-text">Title</label>
+                <input type="text" id="meta-title" class="input-field">
+            </div>
+            <div>
+                <label for="meta-desc" class="label-text">Description</label>
+                <textarea id="meta-desc" rows="3" class="input-field"></textarea>
+            </div>
+            <div>
+                <label for="meta-author" class="label-text">Author</label>
+                <input type="text" id="meta-author" class="input-field">
+            </div>
+            <div>
+                <label for="meta-version" class="label-text">Version Note</label>
+                <input type="text" id="meta-version" class="input-field">
+            </div>
+        </div>
+        <div class="mt-6 flex justify-end space-x-3">
+            <button id="cancel-metadata-btn" class="btn btn-secondary">Cancel</button>
+            <button id="save-metadata-btn" class="btn btn-primary">Save</button>
+        </div>
+    </div>
 </div>
 
 <div id="cell-action-modal" class="modal-backdrop hidden">
-<div class="modal-content">
-<h3 id="cell-action-title" class="text-lg font-bold leading-6 text-white text-center">Cell Actions</h3>
-<div class="mt-4 space-y-4">
-<div>
-<label for="cell-prompt-input" class="label-text">Nano-Banana AI Prompt:</label>
-<textarea id="cell-prompt-input" rows="3" class="input-field" placeholder="e.g., Make this look like a watercolor painting"></textarea>
-</div>
-<button id="generate-ai-btn" class="btn btn-primary w-full">
-<span id="generate-ai-btn-text">Modify with AI</span>
-<svg id="generate-ai-spinner" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-</svg>
-</button>
-</div>
-<div class="mt-4 border-t border-gray-500 pt-4 space-y-3">
-<button id="replace-cell-btn" class="btn btn-secondary w-full">Upload Manual Replacement</button>
-<button id="download-cell-btn" class="btn btn-secondary w-full">Download This Section</button>
-<button id="clear-cell-btn" class="btn btn-danger w-full mt-2">Clear Replacement</button>
-</div>
-<div class="mt-6 text-center">
-<button id="cancel-cell-action-btn" class="btn btn-secondary">Close</button>
-</div>
-</div>
+    <div class="modal-content">
+        <h3 id="cell-action-title" class="text-lg font-bold leading-6 text-white text-center">Cell Actions</h3>
+        <div class="mt-4 space-y-4">
+            <div>
+                <label for="cell-prompt-input" class="label-text">AI Prompt:</label>
+                <textarea id="cell-prompt-input" rows="3" class="input-field" placeholder="e.g., A reflection in the mirror of a person sleeping..."></textarea>
+            </div>
+            <button id="generate-ai-btn" class="btn btn-primary w-full">
+                <span id="generate-ai-btn-text">Generate with AI</span>
+                <svg id="generate-ai-spinner" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </button>
+        </div>
+        <div class="mt-4 border-t border-gray-500 pt-4 space-y-3">
+            <button id="replace-cell-btn" class="btn btn-secondary w-full">Upload Replacement</button>
+            <button id="download-cell-btn" class="btn btn-secondary w-full">Download Section</button>
+            <button id="clear-cell-btn" class="btn btn-danger w-full mt-2">Clear Replacement</button>
+        </div>
+        <div class="mt-6 text-center">
+            <button id="cancel-cell-action-btn" class="btn btn-secondary">Close</button>
+        </div>
+    </div>
 </div>
 
 <input type="file" id="base-image-input" class="hidden" accept="image/*">
