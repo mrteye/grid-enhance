@@ -8,8 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
             dateCreated: null,
             dateModified: null,
             versionNote: 'Initial version',
-            prompts: {}, // NEW: Stores all cell prompts
-            promptAssists: [ // NEW: Default prompt assists
+            // `prompts` is now deprecated and merged into cellHistory
+            promptAssists: [ // Default prompt assists
                 { text: '4k, detailed, high resolution', enabled: true },
                 { text: 'cinematic lighting', enabled: false },
                 { text: 'watercolor painting style', enabled: false },
@@ -17,7 +17,8 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         baseImageSrc: null,
         gridConfig: { rows: 2, cols: 2 },
-        cellReplacements: {}, 
+        // cellReplacements is now cellHistory to support undo functionality
+        cellHistory: {}, // key: "row-col", value: [{ src, width, height, prompt }, ...]
         ui: { showGrid: true, apiKey: '' }
     };
 
@@ -80,11 +81,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const colWidths = new Array(cols).fill(baseCellWidth);
         const rowHeights = new Array(rows).fill(baseCellHeight);
 
-        for (const key in projectState.cellReplacements) {
-            const [row, col] = key.split('-').map(Number);
-            const replacement = projectState.cellReplacements[key];
-            colWidths[col] = Math.max(colWidths[col], replacement.width);
-            rowHeights[row] = Math.max(rowHeights[row], replacement.height);
+        // Calculate max dimensions based on the latest history entry for each cell
+        for (const key in projectState.cellHistory) {
+            const history = projectState.cellHistory[key];
+            if (history && history.length > 0) {
+                const [row, col] = key.split('-').map(Number);
+                const latestReplacement = history[history.length - 1];
+                colWidths[col] = Math.max(colWidths[col], latestReplacement.width);
+                rowHeights[row] = Math.max(rowHeights[row], latestReplacement.height);
+            }
         }
 
         const totalWidth = colWidths.reduce((sum, w) => sum + w, 0);
@@ -102,10 +107,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const cellKey = `${row}-${col}`;
                 const cellW = colWidths[col];
                 const cellH = rowHeights[row];
-
-                if (projectState.cellReplacements[cellKey]) {
-                    const replacement = projectState.cellReplacements[cellKey];
-                    const img = await loadImage(replacement.src);
+                const history = projectState.cellHistory[cellKey];
+                
+                if (history && history.length > 0) {
+                    const latestReplacement = history[history.length - 1];
+                    const img = await loadImage(latestReplacement.src);
                     ctx.drawImage(img, currentX, currentY, cellW, cellH);
                 } else {
                     const sx = col * baseCellWidth;
@@ -192,10 +198,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const img = await loadImage(newImageSrc);
             const cellKey = `${activeCell.row}-${activeCell.col}`;
             
-            projectState.cellReplacements[cellKey] = {
-                src: newImageSrc, width: img.width, height: img.height
-            };
-            projectState.metadata.prompts[cellKey] = cellPromptInput.value;
+            // Push the new generation to the cell's history
+            if (!projectState.cellHistory[cellKey]) {
+                projectState.cellHistory[cellKey] = [];
+            }
+            projectState.cellHistory[cellKey].push({
+                src: newImageSrc, 
+                width: img.width, 
+                height: img.height,
+                prompt: cellPromptInput.value // Store the base prompt
+            });
+
             projectState.metadata.dateModified = new Date().toISOString();
 
             await drawCanvas();
@@ -249,9 +262,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
         const cellKey = `${cell.row}-${cell.col}`;
-        if (projectState.cellReplacements[cellKey]) {
-            const replacement = projectState.cellReplacements[cellKey];
-            const img = await loadImage(replacement.src);
+        const history = projectState.cellHistory[cellKey];
+
+        if (history && history.length > 0) {
+            const latestReplacement = history[history.length - 1];
+            const img = await loadImage(latestReplacement.src);
             tempCanvas.width = img.width;
             tempCanvas.height = img.height;
             tempCtx.drawImage(img, 0, 0);
@@ -277,11 +292,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 const img = new Image();
                 img.onload = () => {
                     const cellKey = `${activeCell.row}-${activeCell.col}`;
-                    projectState.cellReplacements[cellKey] = {
+                    if (!projectState.cellHistory[cellKey]) {
+                        projectState.cellHistory[cellKey] = [];
+                    }
+                    projectState.cellHistory[cellKey].push({
                         src: e.target.result,
                         width: img.width,
                         height: img.height,
-                    };
+                        prompt: 'Manual Upload'
+                    });
                     projectState.metadata.dateModified = new Date().toISOString();
                     drawCanvas();
                 };
@@ -298,9 +317,27 @@ document.addEventListener('DOMContentLoaded', () => {
             reader.onload = async (e) => {
                 try {
                     const loadedState = JSON.parse(e.target.result);
-                    if (!loadedState.metadata.prompts) loadedState.metadata.prompts = {};
-                    if (!loadedState.metadata.promptAssists) loadedState.metadata.promptAssists = [];
                     
+                    // --- Backwards Compatibility Migration ---
+                    if (loadedState.cellReplacements || loadedState.metadata.prompts) {
+                        loadedState.cellHistory = {};
+                        for (const key in loadedState.cellReplacements) {
+                            loadedState.cellHistory[key] = [{
+                                ...loadedState.cellReplacements[key],
+                                prompt: loadedState.metadata?.prompts?.[key] || 'Imported'
+                            }];
+                        }
+                        delete loadedState.cellReplacements;
+                        if (loadedState.metadata) delete loadedState.metadata.prompts;
+                    }
+                    if (!loadedState.metadata.promptAssists) {
+                         loadedState.metadata.promptAssists = [
+                            { text: '4k, detailed, high resolution', enabled: true },
+                            { text: 'cinematic lighting', enabled: false },
+                         ];
+                    }
+                    // --- End Migration ---
+
                     projectState = loadedState;
                     if (projectState.baseImageSrc) {
                         baseImage = await loadImage(projectState.baseImageSrc);
@@ -327,6 +364,8 @@ document.addEventListener('DOMContentLoaded', () => {
             reader.onload = (ev) => {
                 projectState.baseImageSrc = ev.target.result;
                 projectState.metadata.dateCreated = new Date().toISOString();
+                // Reset history on new image upload
+                projectState.cellHistory = {}; 
                 baseImage = new Image();
                 baseImage.onload = () => {
                     welcomeScreen.classList.add('hidden');
@@ -342,8 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
         gridSelect.addEventListener('change', () => {
             const [cols, rows] = gridSelect.value.split('x').map(Number);
             projectState.gridConfig = { rows, cols };
-            projectState.cellReplacements = {};
-            projectState.metadata.prompts = {};
+            projectState.cellHistory = {};
             drawCanvas();
         });
         previewToggle.addEventListener('change', (e) => { projectState.ui.showGrid = !e.target.checked; drawCanvas(); });
@@ -357,11 +395,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const { rows, cols } = projectState.gridConfig;
             const colWidths = new Array(cols).fill(baseImage.width / cols);
             const rowHeights = new Array(rows).fill(baseImage.height / rows);
-            for (const key in projectState.cellReplacements) {
-                const [r, c] = key.split('-').map(Number);
-                const rep = projectState.cellReplacements[key];
-                colWidths[c] = Math.max(colWidths[c], rep.width);
-                rowHeights[r] = Math.max(rowHeights[r], rep.height);
+            for (const key in projectState.cellHistory) {
+                 const history = projectState.cellHistory[key];
+                 if (history && history.length > 0) {
+                    const [r, c] = key.split('-').map(Number);
+                    const rep = history[history.length - 1];
+                    colWidths[c] = Math.max(colWidths[c], rep.width);
+                    rowHeights[r] = Math.max(rowHeights[r], rep.height);
+                 }
             }
             let cumulativeY = 0;
             for (let row = 0; row < rows; row++) {
@@ -387,15 +428,25 @@ document.addEventListener('DOMContentLoaded', () => {
         generateAiBtn.addEventListener('click', handleAIGeneration);
         replaceCellBtn.addEventListener('click', () => cellImageInput.click());
         cellImageInput.addEventListener('change', (e) => handleCellReplacement(e.target.files[0]));
+        
+        // --- UPDATED Clear Button Logic ---
         clearCellBtn.addEventListener('click', () => {
             if(activeCell) {
                 const cellKey = `${activeCell.row}-${activeCell.col}`;
-                delete projectState.cellReplacements[cellKey];
-                delete projectState.metadata.prompts[cellKey];
+                const history = projectState.cellHistory[cellKey];
+                if (history && history.length > 0) {
+                    // Pop the last entry from the history array
+                    history.pop();
+                    // If the history is now empty, remove the key to clean up state
+                    if (history.length === 0) {
+                        delete projectState.cellHistory[cellKey];
+                    }
+                }
                 drawCanvas();
             }
             hideCellActionModal();
         });
+
         cancelCellActionBtn.addEventListener('click', hideCellActionModal);
         saveMetadataBtn.addEventListener('click', () => {
             projectState.metadata.title = metaTitle.value;
@@ -423,9 +474,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Helper functions for modals and UI state ---
     const showCellActionModal = async () => {
         const cellKey = `${activeCell.row}-${activeCell.col}`;
+        const history = projectState.cellHistory[cellKey];
+        const latestEntry = (history && history.length > 0) ? history[history.length - 1] : null;
+
         cellActionTitle.textContent = `Actions for Cell (R:${activeCell.row + 1}, C:${activeCell.col + 1})`;
-        cellPromptInput.value = projectState.metadata.prompts[cellKey] || '';
-        clearCellBtn.style.display = projectState.cellReplacements[cellKey] ? 'block' : 'none';
+        // Show the prompt of the latest version, or empty if none
+        cellPromptInput.value = latestEntry?.prompt === 'Manual Upload' ? '' : latestEntry?.prompt || '';
+        // The button is now an "Undo" button, so it should be visible if there's history
+        clearCellBtn.textContent = 'Undo Last Generation';
+        clearCellBtn.style.display = latestEntry ? 'block' : 'none';
         
         const previewCtx = cellPreviewCanvas.getContext('2d');
         const base64 = await getCellAsBase64(activeCell);
@@ -436,13 +493,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         otherPromptsList.innerHTML = '';
         let hasOtherPrompts = false;
-        for (const key in projectState.metadata.prompts) {
-            if (key !== cellKey && projectState.metadata.prompts[key]) {
-                hasOtherPrompts = true;
-                const p = document.createElement('p');
-                p.textContent = projectState.metadata.prompts[key];
-                p.onclick = () => { cellPromptInput.value = p.textContent; };
-                otherPromptsList.appendChild(p);
+        for (const key in projectState.cellHistory) {
+            const otherHistory = projectState.cellHistory[key];
+            if (key !== cellKey && otherHistory && otherHistory.length > 0) {
+                 const latestPrompt = otherHistory[otherHistory.length - 1].prompt;
+                 if (latestPrompt && latestPrompt !== 'Manual Upload') {
+                    hasOtherPrompts = true;
+                    const p = document.createElement('p');
+                    p.textContent = latestPrompt;
+                    p.onclick = () => { cellPromptInput.value = p.textContent; };
+                    otherPromptsList.appendChild(p);
+                 }
             }
         }
         if (!hasOtherPrompts) {
