@@ -21,9 +21,10 @@
         <div id="welcome-screen" class="flex flex-col items-center justify-center h-full text-center">
             <h1 class="text-4xl font-bold tracking-tight text-white sm:text-5xl">Grid Enhance Engine</h1>
             <p class="mt-4 text-lg text-gray-400">An AI-Powered Tool for Image Expansion</p>
-            <div class="mt-8">
-                <button id="upload-base-image-btn" class="btn btn-primary text-base px-8 py-3">Upload Image</button>
-                <button id="load-project-btn-welcome" class="btn btn-secondary text-base px-8 py-3 ml-4">Load Project (.json)</button>
+            <div class="mt-8 flex flex-wrap justify-center gap-4">
+                <button id="generate-base-image-btn" class="btn btn-primary text-base px-8 py-3">Start with a Prompt</button>
+                <button id="upload-base-image-btn" class="btn btn-secondary text-base px-8 py-3">Upload Image</button>
+                <button id="load-project-btn-welcome" class="btn btn-secondary text-base px-8 py-3">Load Project (.json)</button>
             </div>
         </div>
 
@@ -69,6 +70,35 @@
             </div>
         </div>
     </div>
+    
+    <!-- Base Image Generation Modal -->
+    <div id="base-image-modal" class="modal-backdrop hidden">
+        <div class="modal-content">
+            <h3 class="text-lg font-bold leading-6 text-white">Generate Initial Image</h3>
+            <p class="text-sm text-gray-400 mt-1">Start your project with an AI-generated image.</p>
+            <div class="mt-4 space-y-4">
+                <div>
+                    <label for="base-prompt-input" class="label-text">Prompt</label>
+                    <textarea id="base-prompt-input" rows="3" class="input-field" placeholder="e.g., A majestic landscape with mountains and a river..."></textarea>
+                </div>
+                <div>
+                    <label for="base-api-key-input" class="label-text">Gemini API Key</label>
+                    <input type="password" id="base-api-key-input" class="input-field" placeholder="Enter your key to generate an image">
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button id="cancel-base-gen-btn" class="btn btn-secondary">Cancel</button>
+                <button id="generate-btn" class="btn btn-primary">
+                    <span id="generate-btn-text">Generate</span>
+                    <svg id="generate-spinner" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
 
     <!-- Metadata Modal -->
     <div id="metadata-modal" class="modal-backdrop hidden">
@@ -115,7 +145,7 @@
                 <div class="border-t border-gray-500 pt-4 space-y-3">
                     <button id="replace-cell-btn" class="btn btn-secondary w-full">Upload Replacement</button>
                     <button id="download-cell-btn" class="btn btn-secondary w-full">Download Section</button>
-                    <button id="clear-cell-btn" class="btn btn-danger w-full mt-2">Clear Replacement</button>
+                    <button id="clear-cell-btn" class="btn btn-danger w-full mt-2">Undo Last Generation</button>
                 </div>
                 <div class="mt-6 text-center">
                     <button id="cancel-cell-action-btn" class="btn btn-secondary">Close</button>
