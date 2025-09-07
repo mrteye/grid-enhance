@@ -55,7 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const cancelMetadataBtn = document.getElementById('cancel-metadata-btn');
 
     // --- CORE LOGIC & DRAWING ---
-    async function drawCanvas() {
+    async function drawCanvas(isExporting = false) {
         if (!baseImage) return;
 
         const { rows, cols } = projectState.gridConfig;
@@ -78,6 +78,8 @@ document.addEventListener('DOMContentLoaded', () => {
         canvas.width = totalWidth;
         canvas.height = totalHeight;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // Ensure image smoothing is disabled for sharp pixels
+        ctx.imageSmoothingEnabled = false;
 
         let currentY = 0;
         for (let row = 0; row < rows; row++) {
@@ -94,14 +96,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     const sx = col * baseCellWidth;
                     const sy = row * baseCellHeight;
-                    ctx.drawImage(baseImage, sx, sy, baseCellWidth, baseCellHeight, currentX, currentY, cellW, cellH);
+                    
+                    // --- NEW LOGIC for un-enhanced cells ---
+                    // If the cell has been stretched, draw a placeholder and the original image at 1x scale.
+                    if (cellW > baseCellWidth || cellH > baseCellHeight) {
+                        // Draw a placeholder background
+                        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                        ctx.fillRect(currentX, currentY, cellW, cellH);
+
+                        // Draw the original, un-stretched image in the center
+                        const centeredX = currentX + (cellW - baseCellWidth) / 2;
+                        const centeredY = currentY + (cellH - baseCellHeight) / 2;
+                        ctx.drawImage(baseImage, sx, sy, baseCellWidth, baseCellHeight, centeredX, centeredY, baseCellWidth, baseCellHeight);
+                        
+                        // Add text to indicate the cell needs enhancement
+                        ctx.font = '16px Inter';
+                        ctx.fillStyle = 'white';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('Enhance this section', currentX + cellW / 2, currentY + cellH / 2);
+                    } else {
+                        // If not stretched, draw as normal
+                        ctx.drawImage(baseImage, sx, sy, baseCellWidth, baseCellHeight, currentX, currentY, cellW, cellH);
+                    }
                 }
                 currentX += cellW;
             }
             currentY += rowHeights[row];
         }
 
-        if (projectState.ui.showGrid) {
+        // Only draw grid lines if not exporting and the UI toggle is on
+        if (!isExporting && projectState.ui.showGrid) {
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
             ctx.lineWidth = 2;
             ctx.beginPath();
@@ -196,7 +220,12 @@ document.addEventListener('DOMContentLoaded', () => {
         URL.revokeObjectURL(url);
     }
 
-    function exportImage() {
+    // --- MODIFIED EXPORT FUNCTION ---
+    async function exportImage() {
+        // Redraw the canvas specifically for export, without gridlines
+        await drawCanvas(true); 
+
+        // Generate the download link from the clean canvas
         const dataUrl = canvas.toDataURL('image/png');
         const a = document.createElement('a');
         a.href = dataUrl;
@@ -204,6 +233,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+
+        // Redraw the canvas again to restore the gridlines for the UI
+        await drawCanvas(false);
     }
 
     // --- UTILITY FUNCTIONS ---
@@ -255,7 +287,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         src: e.target.result,
                         width: img.width,
                         height: img.height,
-                        // FIX: Corrected logical OR operator on a single line
                         prompt: projectState.cellReplacements[cellKey]?.prompt || ''
                     };
                     projectState.metadata.dateModified = new Date().toISOString();
@@ -268,7 +299,6 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         loadProjectInput.addEventListener('change', (event) => {
-            // FIX: Access the first file from the FileList
             const file = event.target.files[0];
             if (!file) return;
             const reader = new FileReader();
@@ -295,7 +325,6 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadBaseImageBtn.addEventListener('click', () => baseImageInput.click());
         loadProjectBtnWelcome.addEventListener('click', () => loadProjectInput.click());
         baseImageInput.addEventListener('change', (e) => {
-            // FIX: Access the first file from the FileList
             const file = e.target.files[0];
             if (!file) return;
             const reader = new FileReader();
@@ -363,7 +392,6 @@ document.addEventListener('DOMContentLoaded', () => {
         editMetadataBtn.addEventListener('click', showMetadataModal);
         generateAiBtn.addEventListener('click', handleAIGeneration);
         replaceCellBtn.addEventListener('click', () => cellImageInput.click());
-        // FIX: Pass the first file from the FileList to the handler
         cellImageInput.addEventListener('change', (e) => handleCellReplacement(e.target.files[0]));
         clearCellBtn.addEventListener('click', () => {
             if(activeCell) {
@@ -389,7 +417,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const showCellActionModal = () => {
         const cellKey = `${activeCell.row}-${activeCell.col}`;
         cellActionTitle.textContent = `Actions for Cell (R:${activeCell.row + 1}, C:${activeCell.col + 1})`;
-        // FIX: Corrected logical OR operator on a single line
         cellPromptInput.value = projectState.cellReplacements[cellKey]?.prompt || '';
         clearCellBtn.style.display = projectState.cellReplacements[cellKey] ? 'block' : 'none';
         cellActionModal.classList.remove('hidden');
@@ -411,3 +438,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     init();
 });
+
