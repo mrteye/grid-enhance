@@ -53,6 +53,7 @@
                             <input id="preview-toggle" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 bg-gray-700">
                             <label for="preview-toggle" class="ml-2 block text-sm text-gray-300">Hide Grid</label>
                         </div>
+                        <button id="prompt-assist-btn" class="btn btn-secondary ml-4">Prompt Assists</button>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
                         <button id="save-project-btn" class="btn btn-secondary">Save Project</button>
@@ -88,14 +89,17 @@
 
     <!-- Cell Action Modal -->
     <div id="cell-action-modal" class="modal-backdrop hidden">
-        <div class="modal-content">
-            <h3 id="cell-action-title" class="text-lg font-bold leading-6 text-white text-center">Cell Actions</h3>
-            <div class="mt-4 space-y-4">
+        <div class="modal-content max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <h3 id="cell-action-title" class="text-lg font-bold leading-6 text-white text-center mb-4">Cell Actions</h3>
+                <div class="bg-gray-800 p-2 rounded-lg mb-4">
+                    <canvas id="cell-preview-canvas" class="w-full h-auto rounded"></canvas>
+                </div>
                 <div>
                     <label for="cell-prompt-input" class="label-text">AI Prompt:</label>
-                    <textarea id="cell-prompt-input" rows="3" class="input-field" placeholder="e.g., A reflection in the mirror of a person sleeping..."></textarea>
+                    <textarea id="cell-prompt-input" rows="4" class="input-field" placeholder="e.g., A reflection in the mirror of a person sleeping..."></textarea>
                 </div>
-                <button id="generate-ai-btn" class="btn btn-primary w-full">
+                <button id="generate-ai-btn" class="btn btn-primary w-full mt-4">
                     <span id="generate-ai-btn-text">Generate with AI</span>
                     <svg id="generate-ai-spinner" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -103,13 +107,37 @@
                     </svg>
                 </button>
             </div>
-            <div class="mt-4 border-t border-gray-500 pt-4 space-y-3">
-                <button id="replace-cell-btn" class="btn btn-secondary w-full">Upload Replacement</button>
-                <button id="download-cell-btn" class="btn btn-secondary w-full">Download Section</button>
-                <button id="clear-cell-btn" class="btn btn-danger w-full mt-2">Clear Replacement</button>
+            <div>
+                <h4 class="text-md font-bold text-white text-center mb-4">Other Section Prompts</h4>
+                <div id="other-prompts-list" class="space-y-2 text-sm text-gray-300 bg-gray-800 p-3 rounded-lg h-32 overflow-y-auto mb-4">
+                    <!-- Other prompts will be injected here -->
+                </div>
+                <div class="border-t border-gray-500 pt-4 space-y-3">
+                    <button id="replace-cell-btn" class="btn btn-secondary w-full">Upload Replacement</button>
+                    <button id="download-cell-btn" class="btn btn-secondary w-full">Download Section</button>
+                    <button id="clear-cell-btn" class="btn btn-danger w-full mt-2">Clear Replacement</button>
+                </div>
+                <div class="mt-6 text-center">
+                    <button id="cancel-cell-action-btn" class="btn btn-secondary">Close</button>
+                </div>
             </div>
-            <div class="mt-6 text-center">
-                <button id="cancel-cell-action-btn" class="btn btn-secondary">Close</button>
+        </div>
+    </div>
+    
+    <!-- Prompt Assist Modal -->
+    <div id="prompt-assist-modal" class="modal-backdrop hidden">
+        <div class="modal-content">
+            <h3 class="text-lg font-bold leading-6 text-white">Prompt Assists Manager</h3>
+            <p class="text-sm text-gray-400 mt-1">Create reusable prompt snippets to speed up your workflow.</p>
+            <div id="prompt-assist-list" class="mt-4 space-y-2 max-h-60 overflow-y-auto">
+                <!-- Prompt assists will be injected here -->
+            </div>
+            <div class="mt-4 pt-4 border-t border-gray-600 flex gap-2">
+                <input type="text" id="new-assist-input" class="input-field" placeholder="e.g., 4k, hyperrealistic">
+                <button id="add-assist-btn" class="btn btn-primary whitespace-nowrap">Add Assist</button>
+            </div>
+            <div class="mt-6 flex justify-end">
+                <button id="close-assist-modal-btn" class="btn btn-secondary">Close</button>
             </div>
         </div>
     </div>
@@ -123,3 +151,4 @@
     <script src="script.js"></script>
 </body>
 </html>
+
