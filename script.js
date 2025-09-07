@@ -157,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const result = await response.json();
-            const newImageBase64 = result?.candidates?.?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+            const newImageBase64 = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
 
             if (!newImageBase64) throw new Error("API did not return an image. The prompt might be unsafe.");
 
