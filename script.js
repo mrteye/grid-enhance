@@ -163,8 +163,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         setBaseGenLoading(true);
         try {
-            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
-            const payload = { instances: [{ prompt: prompt }], parameters: { "sampleCount": 1 } };
+            // UPDATED: Switched to the hackathon-friendly model
+            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { responseModalities: ['IMAGE'] },
+            };
 
             const response = await fetch(API_URL, {
                 method: 'POST',
@@ -178,8 +182,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const result = await response.json();
-            const base64Data = result.predictions?.[0]?.bytesBase64Encoded;
-            if (!base64Data) throw new Error("API did not return an image.");
+            // UPDATED: Changed response parsing to match the new model
+            const base64Data = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+            if (!base64Data) throw new Error("API did not return an image. The prompt might be unsafe.");
 
             const newImageSrc = `data:image/png;base64,${base64Data}`;
             initializeAppWithImage(newImageSrc, apiKey);
