@@ -136,7 +136,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${projectState.ui.apiKey}`;
 
             const payload = {
-                contents:
+                contents: [{
+                    parts: [
+                        { text: prompt },
+                        { inlineData: { mimeType: "image/png", data: cellImageBase64 } }
+                    ]
                 }],
                 generationConfig: { responseModalities: ['IMAGE'] },
             };
