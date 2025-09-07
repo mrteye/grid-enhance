@@ -115,14 +115,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateUI() {
         projectTitleDisplay.textContent = projectState.metadata.title;
-        previewToggle.checked =!projectState.ui.showGrid;
+        previewToggle.checked = !projectState.ui.showGrid;
         apiKeyInput.value = projectState.ui.apiKey;
         drawCanvas();
     }
 
     // --- GEMINI API LOGIC ---
     async function handleAIGeneration() {
-        if (!activeCell ||!projectState.ui.apiKey) {
+        if (!activeCell || !projectState.ui.apiKey) {
             alert('Please enter your Google AI API Key in the control panel.');
             return;
         }
@@ -245,17 +245,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- EVENT HANDLERS & INITIALIZATION ---
     function init() {
         const handleCellReplacement = (file) => {
-            if (!file ||!activeCell) return;
+            if (!file || !activeCell) return;
             const reader = new FileReader();
             reader.onload = (e) => {
                 const img = new Image();
                 img.onload = () => {
                     const cellKey = `${activeCell.row}-${activeCell.col}`;
                     projectState.cellReplacements[cellKey] = {
-                        src: e.target.result, width: img.width, height: img.height,
-                        prompt: projectState.cellReplacements[cellKey]?.prompt |
-
-| ''
+                        src: e.target.result,
+                        width: img.width,
+                        height: img.height,
+                        // FIX: Corrected logical OR operator on a single line
+                        prompt: projectState.cellReplacements[cellKey]?.prompt || ''
                     };
                     projectState.metadata.dateModified = new Date().toISOString();
                     drawCanvas();
@@ -267,7 +268,8 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         loadProjectInput.addEventListener('change', (event) => {
-            const file = event.target.files;
+            // FIX: Access the first file from the FileList
+            const file = event.target.files[0];
             if (!file) return;
             const reader = new FileReader();
             reader.onload = async (e) => {
@@ -293,7 +295,8 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadBaseImageBtn.addEventListener('click', () => baseImageInput.click());
         loadProjectBtnWelcome.addEventListener('click', () => loadProjectInput.click());
         baseImageInput.addEventListener('change', (e) => {
-            const file = e.target.files;
+            // FIX: Access the first file from the FileList
+            const file = e.target.files[0];
             if (!file) return;
             const reader = new FileReader();
             reader.onload = (ev) => {
@@ -317,7 +320,7 @@ document.addEventListener('DOMContentLoaded', () => {
             projectState.cellReplacements = {};
             drawCanvas();
         });
-        previewToggle.addEventListener('change', (e) => { projectState.ui.showGrid =!e.target.checked; drawCanvas(); });
+        previewToggle.addEventListener('change', (e) => { projectState.ui.showGrid = !e.target.checked; drawCanvas(); });
         canvas.addEventListener('click', (event) => {
             if (!baseImage) return;
             const rect = canvas.getBoundingClientRect();
@@ -360,7 +363,8 @@ document.addEventListener('DOMContentLoaded', () => {
         editMetadataBtn.addEventListener('click', showMetadataModal);
         generateAiBtn.addEventListener('click', handleAIGeneration);
         replaceCellBtn.addEventListener('click', () => cellImageInput.click());
-        cellImageInput.addEventListener('change', (e) => handleCellReplacement(e.target.files));
+        // FIX: Pass the first file from the FileList to the handler
+        cellImageInput.addEventListener('change', (e) => handleCellReplacement(e.target.files[0]));
         clearCellBtn.addEventListener('click', () => {
             if(activeCell) {
                 delete projectState.cellReplacements[`${activeCell.row}-${activeCell.col}`];
@@ -385,10 +389,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const showCellActionModal = () => {
         const cellKey = `${activeCell.row}-${activeCell.col}`;
         cellActionTitle.textContent = `Actions for Cell (R:${activeCell.row + 1}, C:${activeCell.col + 1})`;
-        cellPromptInput.value = projectState.cellReplacements[cellKey]?.prompt |
-
-| '';
-        clearCellBtn.style.display = projectState.cellReplacements[cellKey]? 'block' : 'none';
+        // FIX: Corrected logical OR operator on a single line
+        cellPromptInput.value = projectState.cellReplacements[cellKey]?.prompt || '';
+        clearCellBtn.style.display = projectState.cellReplacements[cellKey] ? 'block' : 'none';
         cellActionModal.classList.remove('hidden');
     };
     const hideCellActionModal = () => { cellActionModal.classList.add('hidden'); activeCell = null; };
@@ -402,8 +405,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const hideMetadataModal = () => { metadataModal.classList.add('hidden'); };
     const setAILoading = (isLoading) => {
         generateAiBtn.disabled = isLoading;
-        generateAiBtnText.style.display = isLoading? 'none' : 'inline';
-        generateAiSpinner.style.display = isLoading? 'inline-block' : 'none';
+        generateAiBtnText.style.display = isLoading ? 'none' : 'inline';
+        generateAiSpinner.style.display = isLoading ? 'inline-block' : 'none';
     };
 
     init();
