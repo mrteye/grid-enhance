@@ -66,7 +66,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const newAssistInput = document.getElementById('new-assist-input');
     const addAssistBtn = document.getElementById('add-assist-btn');
     const closeAssistModalBtn = document.getElementById('close-assist-modal-btn');
-    // New elements for base image generation
     const generateBaseImageBtn = document.getElementById('generate-base-image-btn');
     const baseImageModal = document.getElementById('base-image-modal');
     const basePromptInput = document.getElementById('base-prompt-input');
@@ -163,7 +162,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         setBaseGenLoading(true);
         try {
-            // UPDATED: Switched to the hackathon-friendly model
             const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
             const payload = {
                 contents: [{ parts: [{ text: prompt }] }],
@@ -182,7 +180,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const result = await response.json();
-            // UPDATED: Changed response parsing to match the new model
             const base64Data = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
             if (!base64Data) throw new Error("API did not return an image. The prompt might be unsafe.");
 
@@ -401,12 +398,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
         loadProjectBtnWelcome.addEventListener('click', () => loadProjectInput.click());
         apiKeyInput.addEventListener('input', (e) => projectState.ui.apiKey = e.target.value);
-        gridSelect.addEventListener('change', () => {
+        
+        // UPDATED: Grid change handler
+        gridSelect.addEventListener('change', async () => {
+            // "Flatten" the current canvas to become the new base image
+            await drawCanvas(true); // Draw without grid
+            const newDataUrl = canvas.toDataURL('image/png');
+            projectState.baseImageSrc = newDataUrl;
+            baseImage = await loadImage(newDataUrl);
+
+            // Reset grid and history
             const [cols, rows] = gridSelect.value.split('x').map(Number);
             projectState.gridConfig = { rows, cols };
             projectState.cellHistory = {};
-            drawCanvas();
+            
+            // Redraw with the new grid
+            await drawCanvas(false);
         });
+
         previewToggle.addEventListener('change', (e) => { projectState.ui.showGrid = !e.target.checked; drawCanvas(); });
         canvas.addEventListener('click', (event) => {
             if (!baseImage) return;
@@ -514,6 +523,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (latestPrompt && latestPrompt !== 'Manual Upload') {
                     hasOtherPrompts = true;
                     const p = document.createElement('p');
+                    p.className = 'p-2 bg-gray-900 rounded cursor-pointer hover:bg-indigo-900/50';
                     p.textContent = latestPrompt;
                     p.onclick = () => { cellPromptInput.value = p.textContent; };
                     otherPromptsList.appendChild(p);
@@ -567,7 +577,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const hidePromptAssistModal = () => { promptAssistModal.classList.add('hidden'); };
     const showBaseImageModal = () => {
-        baseApiKeyInput.value = projectState.ui.apiKey; // Pre-fill if already entered
+        baseApiKeyInput.value = projectState.ui.apiKey; 
         baseImageModal.classList.remove('hidden');
     };
     const hideBaseImageModal = () => { baseImageModal.classList.add('hidden'); };
