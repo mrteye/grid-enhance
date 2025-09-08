@@ -80,14 +80,100 @@
         </div>
     </div>
     
-    <!-- Modals (structure remains the same) -->
-    <div id="base-image-modal" class="modal-backdrop hidden"><!-- ... --></div>
-    <div id="metadata-modal" class="modal-backdrop hidden"><!-- ... --></div>
-    <div id="cell-action-modal" class="modal-backdrop hidden"><!-- ... --></div>
-    <div id="prompt-assist-modal" class="modal-backdrop hidden"><!-- ... --></div>
+    <!-- Modals -->
+    <div id="base-image-modal" class="modal-backdrop hidden">
+        <div class="modal-content" style="max-width: 500px;">
+            <h3 class="text-lg font-bold leading-6 text-white">Generate Base Image</h3>
+            <p class="text-sm text-gray-400 mt-1">Start your project with a new image generated from a text prompt.</p>
+            <div class="mt-4 space-y-4">
+                <div>
+                    <label for="base-image-prompt-input" class="label-text">Prompt</label>
+                    <textarea id="base-image-prompt-input" rows="4" class="input-field" placeholder="e.g., An astronaut riding a horse on the moon, photorealistic"></textarea>
+                </div>
+                <div>
+                    <label for="base-image-api-key-input" class="label-text">Gemini API Key</label>
+                    <input type="password" id="base-image-api-key-input" class="input-field" placeholder="Paste your API key here">
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end items-center space-x-3">
+                <button id="cancel-base-btn" class="btn btn-secondary">Cancel</button>
+                <button id="generate-base-btn" class="btn btn-primary w-36">
+                    <span id="generate-base-btn-text">Generate</span>
+                    <svg id="generate-base-spinner" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+    <div id="metadata-modal" class="modal-backdrop hidden">
+        <div class="modal-content" style="max-width: 500px;">
+             <h3 class="text-lg font-bold leading-6 text-white">Project Information</h3>
+            <div class="mt-4 space-y-4">
+                <div> <label for="meta-title" class="label-text">Title</label> <input type="text" id="meta-title" class="input-field"> </div>
+                <div> <label for="meta-desc" class="label-text">Description</label> <textarea id="meta-desc" rows="3" class="input-field"></textarea> </div>
+                <div> <label for="meta-author" class="label-text">Author</label> <input type="text" id="meta-author" class="input-field"> </div>
+                <div> <label for="meta-version" class="label-text">Version Note</label> <input type="text" id="meta-version" class="input-field"> </div>
+            </div>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button id="cancel-metadata-btn" class="btn btn-secondary">Cancel</button>
+                <button id="save-metadata-btn" class="btn btn-primary">Save</button>
+            </div>
+        </div>
+    </div>
+    <div id="cell-action-modal" class="modal-backdrop hidden">
+        <div class="modal-content flex flex-col gap-4" style="max-width: 600px;">
+            <h3 id="cell-action-title" class="text-lg font-bold leading-6 text-white text-center">Cell Actions</h3>
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="flex-1 space-y-2">
+                    <p class="label-text">Cell Preview</p>
+                    <canvas id="cell-preview-canvas" class="w-full rounded-md bg-gray-800 border border-gray-600"></canvas>
+                </div>
+                <div class="flex-1 space-y-2">
+                    <p class="label-text">Other Prompts</p>
+                    <div id="other-prompts-list" class="text-xs text-gray-300 p-2 rounded-md bg-gray-800 border border-gray-600 h-24 overflow-y-auto cursor-pointer"></div>
+                </div>
+            </div>
+            <div class="space-y-2">
+                 <label for="cell-prompt-input" class="label-text">AI Prompt:</label>
+                 <textarea id="cell-prompt-input" rows="3" class="input-field" placeholder="e.g., A reflection in the mirror of a person sleeping..."></textarea>
+            </div>
+            <button id="generate-ai-btn" class="btn btn-primary w-full">
+                <span id="generate-ai-btn-text">Generate with AI</span>
+                 <svg id="generate-ai-spinner" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </button>
+            <div class="border-t border-gray-500 pt-4 flex flex-col sm:flex-row gap-2">
+                 <button id="replace-cell-btn" class="btn btn-secondary w-full">Upload</button>
+                 <button id="clear-cell-btn" class="btn btn-danger w-full">Undo Last Gen</button>
+            </div>
+            <div class="mt-2 text-center">
+                <button id="cancel-cell-action-btn" class="btn btn-secondary">Close</button>
+            </div>
+        </div>
+    </div>
+    <div id="prompt-assist-modal" class="modal-backdrop hidden">
+        <div class="modal-content" style="max-width: 500px;">
+            <h3 class="text-lg font-bold leading-6 text-white">Manage Prompt Assists</h3>
+            <div class="mt-4 space-y-4">
+                <div id="prompt-assist-list" class="space-y-2"></div>
+                <div class="flex gap-2">
+                    <input type="text" id="new-assist-input" class="input-field flex-grow" placeholder="Add new assist...">
+                    <button id="add-assist-btn" class="btn btn-primary">Add</button>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end">
+                <button id="close-assist-modal-btn" class="btn btn-secondary">Done</button>
+            </div>
+        </div>
+    </div>
     <input type="file" id="base-image-input" class="hidden" accept="image/*">
     <input type="file" id="cell-image-input" class="hidden" accept="image/*">
     <input type="file" id="load-project-input" class="hidden" accept=".json">
     <script src="script.js"></script>
 </body>
 </html>
+
