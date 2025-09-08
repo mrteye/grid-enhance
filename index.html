@@ -43,18 +43,25 @@
                     </div>
                 </div>
                 <div class="flex flex-wrap items-center justify-between gap-4">
-                    <div class="flex flex-wrap items-center gap-2">
-                        <label for="grid-select" class="text-sm font-medium text-gray-300">Grid:</label>
-                        <select id="grid-select" class="input-field w-28">
-                            <option>1x2</option><option>2x1</option><option selected>2x2</option><option>2x3</option>
-                            <option>3x2</option><option>3x3</option><option>1x3</option><option>3x1</option>
-                            <option>4x4</option><option>5x5</option><option>10x10</option>
-                        </select>
+                    <div class="flex flex-wrap items-center gap-4">
+                        <div class="flex items-center gap-2">
+                            <label for="grid-select" class="text-sm font-medium text-gray-300">Grid:</label>
+                            <select id="grid-select" class="input-field w-28">
+                                <option>1x2</option><option>2x1</option><option selected>2x2</option><option>2x3</option>
+                                <option>3x2</option><option>3x3</option><option>1x3</option><option>3x1</option>
+                                <option>4x4</option><option>5x5</option><option>10x10</option>
+                            </select>
+                        </div>
                         <div class="flex items-center">
                             <input id="preview-toggle" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 bg-gray-700">
                             <label for="preview-toggle" class="ml-2 block text-sm text-gray-300">Hide Grid</label>
                         </div>
-                        <button id="prompt-assist-btn" class="btn btn-secondary ml-4">Prompt Assists</button>
+                        <div class="flex items-center">
+                            <input id="crop-mode-toggle" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 bg-gray-700">
+                            <label for="crop-mode-toggle" class="ml-2 block text-sm text-gray-300">Crop Mode</label>
+                        </div>
+                        <button id="crop-selection-btn" class="btn btn-primary hidden">Crop to Selection</button>
+                        <button id="prompt-assist-btn" class="btn btn-secondary">Prompt Assists</button>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
                         <button id="save-project-btn" class="btn btn-secondary">Save Project</button>
@@ -71,7 +78,7 @@
         </div>
     </div>
     
-    <!-- Base Image Generation Modal -->
+    <!-- Modals (structure remains the same) -->
     <div id="base-image-modal" class="modal-backdrop hidden">
         <div class="modal-content">
             <h3 class="text-lg font-bold leading-6 text-white">Generate Initial Image</h3>
@@ -98,9 +105,6 @@
             </div>
         </div>
     </div>
-
-
-    <!-- Metadata Modal -->
     <div id="metadata-modal" class="modal-backdrop hidden">
         <div class="modal-content">
             <h3 class="text-lg font-bold leading-6 text-white">Project Information</h3>
@@ -116,21 +120,14 @@
             </div>
         </div>
     </div>
-
-    <!-- Cell Action Modal -->
     <div id="cell-action-modal" class="modal-backdrop hidden">
         <div class="modal-content max-w-2xl flex flex-col gap-4">
             <h3 id="cell-action-title" class="text-lg font-bold leading-6 text-white text-center">Cell Actions</h3>
-            
-            <div class="bg-gray-800 p-2 rounded-lg">
-                <canvas id="cell-preview-canvas" class="rounded"></canvas>
-            </div>
-
+            <div class="bg-gray-800 p-2 rounded-lg"><canvas id="cell-preview-canvas" class="rounded"></canvas></div>
             <div>
                 <label for="cell-prompt-input" class="label-text">AI Prompt:</label>
                 <textarea id="cell-prompt-input" rows="3" class="input-field" placeholder="e.g., A reflection in the mirror of a person sleeping..."></textarea>
             </div>
-
             <button id="generate-ai-btn" class="btn btn-primary w-full">
                 <span id="generate-ai-btn-text">Generate with AI</span>
                 <svg id="generate-ai-spinner" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -138,13 +135,10 @@
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
             </button>
-
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-gray-500 pt-4">
                 <div>
                     <h4 class="text-md font-bold text-white text-center mb-2">Other Section Prompts</h4>
-                    <div id="other-prompts-list" class="space-y-2 text-sm text-gray-300 bg-gray-800 p-3 rounded-lg h-24 overflow-y-auto">
-                        <!-- Other prompts will be injected here -->
-                    </div>
+                    <div id="other-prompts-list" class="space-y-2 text-sm text-gray-300 bg-gray-800 p-3 rounded-lg h-24 overflow-y-auto"></div>
                 </div>
                 <div class="space-y-3 flex flex-col justify-center">
                     <button id="replace-cell-btn" class="btn btn-secondary w-full">Upload Replacement</button>
@@ -152,37 +146,24 @@
                     <button id="clear-cell-btn" class="btn btn-danger w-full">Undo Last Generation</button>
                 </div>
             </div>
-
-            <div class="mt-2 text-center">
-                <button id="cancel-cell-action-btn" class="btn btn-secondary">Close</button>
-            </div>
+            <div class="mt-2 text-center"><button id="cancel-cell-action-btn" class="btn btn-secondary">Close</button></div>
         </div>
     </div>
-    
-    <!-- Prompt Assist Modal -->
     <div id="prompt-assist-modal" class="modal-backdrop hidden">
         <div class="modal-content">
             <h3 class="text-lg font-bold leading-6 text-white">Prompt Assists Manager</h3>
             <p class="text-sm text-gray-400 mt-1">Create reusable prompt snippets to speed up your workflow.</p>
-            <div id="prompt-assist-list" class="mt-4 space-y-2 max-h-60 overflow-y-auto">
-                <!-- Prompt assists will be injected here -->
-            </div>
+            <div id="prompt-assist-list" class="mt-4 space-y-2 max-h-60 overflow-y-auto"></div>
             <div class="mt-4 pt-4 border-t border-gray-600 flex gap-2">
                 <input type="text" id="new-assist-input" class="input-field" placeholder="e.g., 4k, hyperrealistic">
                 <button id="add-assist-btn" class="btn btn-primary whitespace-nowrap">Add Assist</button>
             </div>
-            <div class="mt-6 flex justify-end">
-                <button id="close-assist-modal-btn" class="btn btn-secondary">Close</button>
-            </div>
+            <div class="mt-6 flex justify-end"><button id="close-assist-modal-btn" class="btn btn-secondary">Close</button></div>
         </div>
     </div>
-
-    <!-- Hidden File Inputs for triggering uploads -->
     <input type="file" id="base-image-input" class="hidden" accept="image/*">
     <input type="file" id="cell-image-input" class="hidden" accept="image/*">
     <input type="file" id="load-project-input" class="hidden" accept=".json">
-
-    <!-- Link to the corrected JavaScript file -->
     <script src="script.js"></script>
 </body>
 </html>
