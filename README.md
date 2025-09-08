@@ -1,7 +1,5 @@
 # Project: Grid Enhance
 
-([https://vercel.com/button](https://www.google.com/search?q=https://vercel.com/button))]([https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmrteye%2Fproject-infinite-canvas](https://www.google.com/search?q=https://vercel.com/new/clone%3Frepository-url%3Dhttps%253A%252F%252Fgithub.com%252Fmrteye%252Fproject-infinite-canvas))
-
 The **Grid Enhance Engine** began with a simple but challenging goal: to break the boundaries of a fixed digital canvas. Standard AI image generators create amazing art, but often at a set resolution. The question was, how can we not only upscale these images but organically *grow* them, adding new, high-resolution detail section by section?
 
 This project is the answer. It's a next-generation image editor that uses generative AI to expand and enhance images, creating a limitless space for creativity.
@@ -10,7 +8,7 @@ This project is the answer. It's a next-generation image editor that uses genera
 
 ### **▶️ Live Demo & Video**
 
-  * **Live Application:** [https://project-infinite-canvas.vercel.app](https://www.google.com/search?q=https://project-grid-enhance.vercel.app) *(\<-- Replace with your Vercel URL after deploying)*
+  * **Live Application:** [https://grid-enhance.vercel.app](https://grid-enhance.vercel.app/)
   * **Video Demo (2 mins):** [https://your-video-link.com](https://www.google.com/search?q=https://your-video-link.com) *(\<-- Replace with your public video link)*
 
 -----
@@ -40,7 +38,7 @@ This tool divides any image into a grid, allowing you to modify, regenerate, or 
 ### **🏁 Getting Started & Running Locally**
 
 1.  \*\*Clone the repository:\*\*sh
-    git clone [https://github.com/mrteye/project-infinite-canvas.git](https://www.google.com/search?q=https://github.com/mrteye/project-infinite-canvas.git)
+    git clone [https://github.com/mrteye/grid-enhance.git](https://github.com/mrteye/grid-enhance)
     ```
     ```
 2.  **Get an API Key:**
@@ -58,6 +56,6 @@ This project is optimized for zero-configuration deployment on Vercel.
 1.  Push this repository to your GitHub account (`mrteye`).
 2.  Go to [Vercel](https://vercel.com/) and sign up with your GitHub account.
 3.  Click "**Add New...**" \> "**Project**".
-4.  Select your new `project-infinite-canvas` repository and click "**Import**".
+4.  Select your new `grid-enhance` repository and click "**Import**".
 5.  Vercel will automatically detect it as a static site. No framework preset is needed.
 6.  Click "**Deploy**". Your site will be live in seconds\!
