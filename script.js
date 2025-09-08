@@ -22,6 +22,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let baseImage = null;
     let activeCell = null;
+    let isCropMode = false;
+    let cropSelection = new Set();
 
     // --- DOM ELEMENTS ---
     const welcomeScreen = document.getElementById('welcome-screen');
@@ -74,6 +76,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const generateBtnText = document.getElementById('generate-btn-text');
     const generateSpinner = document.getElementById('generate-spinner');
     const cancelBaseGenBtn = document.getElementById('cancel-base-gen-btn');
+    const cropModeToggle = document.getElementById('crop-mode-toggle');
+    const cropSelectionBtn = document.getElementById('crop-selection-btn');
 
     // --- CORE LOGIC & DRAWING ---
     async function drawCanvas(isExporting = false) {
@@ -133,17 +137,50 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (!isExporting && projectState.ui.showGrid) {
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.save();
             ctx.lineWidth = 2;
+            
+            // Draw white dashes
+            ctx.strokeStyle = 'white';
+            ctx.setLineDash([10, 10]);
+            ctx.lineDashOffset = 0;
             ctx.beginPath();
-            let cX = 0;
-            for(let i = 0; i < cols - 1; i++) { cX += colWidths[i]; ctx.moveTo(cX, 0); ctx.lineTo(cX, canvas.height); }
-            let cY = 0;
-            for(let i = 0; i < rows - 1; i++) { cY += rowHeights[i]; ctx.moveTo(0, cY); ctx.lineTo(canvas.width, cY); }
+            let cX_w = 0;
+            for(let i = 0; i < cols - 1; i++) { cX_w += colWidths[i]; ctx.moveTo(cX_w, 0); ctx.lineTo(cX_w, canvas.height); }
+            let cY_w = 0;
+            for(let i = 0; i < rows - 1; i++) { cY_w += rowHeights[i]; ctx.moveTo(0, cY_w); ctx.lineTo(canvas.width, cY_w); }
             ctx.stroke();
+
+            // Draw black dashes
+            ctx.strokeStyle = 'black';
+            ctx.lineDashOffset = 10;
+            ctx.beginPath();
+            let cX_b = 0;
+            for(let i = 0; i < cols - 1; i++) { cX_b += colWidths[i]; ctx.moveTo(cX_b, 0); ctx.lineTo(cX_b, canvas.height); }
+            let cY_b = 0;
+            for(let i = 0; i < rows - 1; i++) { cY_b += rowHeights[i]; ctx.moveTo(0, cY_b); ctx.lineTo(canvas.width, cY_b); }
+            ctx.stroke();
+            
+            ctx.restore();
+        }
+
+        if (isCropMode && cropSelection.size > 0) {
+            ctx.fillStyle = 'rgba(79, 70, 229, 0.4)';
+            let currentY = 0;
+            for (let row = 0; row < rows; row++) {
+                let currentX = 0;
+                for (let col = 0; col < cols; col++) {
+                    const cellKey = `${row}-${col}`;
+                    if (cropSelection.has(cellKey)) {
+                        ctx.fillRect(currentX, currentY, colWidths[col], rowHeights[row]);
+                    }
+                    currentX += colWidths[col];
+                }
+                currentY += rowHeights[row];
+            }
         }
     }
-
+    
     function updateUI() {
         projectTitleDisplay.textContent = projectState.metadata.title;
         previewToggle.checked = !projectState.ui.showGrid;
@@ -151,7 +188,6 @@ document.addEventListener('DOMContentLoaded', () => {
         drawCanvas();
     }
 
-    // --- GEMINI API LOGIC ---
     async function handleBaseImageGeneration() {
         const prompt = basePromptInput.value.trim();
         const apiKey = baseApiKeyInput.value.trim();
@@ -159,7 +195,6 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Please provide a prompt and your API key.');
             return;
         }
-
         setBaseGenLoading(true);
         try {
             const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
@@ -167,25 +202,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 contents: [{ parts: [{ text: prompt }] }],
                 generationConfig: { responseModalities: ['IMAGE'] },
             };
-
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(`API Error: ${error.error.message || 'Unknown error'}`);
-            }
-
+            const response = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if (!response.ok) { const error = await response.json(); throw new Error(`API Error: ${error.error.message || 'Unknown error'}`); }
             const result = await response.json();
             const base64Data = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
             if (!base64Data) throw new Error("API did not return an image. The prompt might be unsafe.");
-
             const newImageSrc = `data:image/png;base64,${base64Data}`;
             initializeAppWithImage(newImageSrc, apiKey);
-
         } catch (error) {
             console.error("Base Image Generation Failed:", error);
             alert("Base Image Generation Failed: " + error.message);
@@ -195,47 +218,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function handleAIGeneration() {
-        if (!activeCell || !projectState.ui.apiKey) {
-            alert('Please enter your Google AI API Key in the control panel.');
-            return;
-        }
+        if (!activeCell || !projectState.ui.apiKey) { alert('Please enter your Google AI API Key in the control panel.'); return; }
         setAILoading(true);
         try {
             let finalPrompt = cellPromptInput.value;
             const enabledAssists = projectState.metadata.promptAssists.filter(a => a.enabled).map(a => a.text);
-            if (enabledAssists.length > 0) {
-                finalPrompt += '; ' + enabledAssists.join('; ');
-            }
+            if (enabledAssists.length > 0) { finalPrompt += '; ' + enabledAssists.join('; '); }
             const cellImageBase64 = await getCellAsBase64(activeCell);
             const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${projectState.ui.apiKey}`;
-            const payload = {
-                contents: [{ parts: [{ text: finalPrompt }, { inlineData: { mimeType: "image/png", data: cellImageBase64 } }] }],
-                generationConfig: { responseModalities: ['IMAGE'] },
-            };
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(`API Error: ${error.error.message}`);
-            }
+            const payload = { contents: [{ parts: [{ text: finalPrompt }, { inlineData: { mimeType: "image/png", data: cellImageBase64 } }] }], generationConfig: { responseModalities: ['IMAGE'] }, };
+            const response = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if (!response.ok) { const error = await response.json(); throw new Error(`API Error: ${error.error.message}`); }
             const result = await response.json();
             const newImageBase64 = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
             if (!newImageBase64) throw new Error("API did not return an image. The prompt might be unsafe.");
             const newImageSrc = `data:image/png;base64,${newImageBase64}`;
             const img = await loadImage(newImageSrc);
             const cellKey = `${activeCell.row}-${activeCell.col}`;
-            if (!projectState.cellHistory[cellKey]) {
-                projectState.cellHistory[cellKey] = [];
-            }
-            projectState.cellHistory[cellKey].push({
-                src: newImageSrc,
-                width: img.width,
-                height: img.height,
-                prompt: cellPromptInput.value
-            });
+            if (!projectState.cellHistory[cellKey]) { projectState.cellHistory[cellKey] = []; }
+            projectState.cellHistory[cellKey].push({ src: newImageSrc, width: img.width, height: img.height, prompt: cellPromptInput.value });
             projectState.metadata.dateModified = new Date().toISOString();
             await drawCanvas();
             hideCellActionModal();
@@ -247,7 +248,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- SAVE, LOAD, EXPORT ---
     function saveProject() {
         projectState.metadata.dateModified = new Date().toISOString();
         const projectJson = JSON.stringify(projectState, null, 2);
@@ -261,6 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     }
+
     async function exportImage() {
         await drawCanvas(true);
         const dataUrl = canvas.toDataURL('image/png');
@@ -273,7 +274,6 @@ document.addEventListener('DOMContentLoaded', () => {
         await drawCanvas(false);
     }
 
-    // --- UTILITIES ---
     function loadImage(src) {
         return new Promise((resolve, reject) => {
             const img = new Image();
@@ -282,6 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
             img.src = src;
         });
     }
+
     async function getCellAsBase64(cell) {
         if (!baseImage) return null;
         const tempCanvas = document.createElement('canvas');
@@ -322,102 +323,64 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         baseImage.src = imageSrc;
     }
+    
+    async function performCrop() {
+        if (cropSelection.size === 0) return;
+
+        await drawCanvas(true); 
+
+        const { rows, cols } = projectState.gridConfig;
+        const baseCellWidth = baseImage.width / cols;
+        const baseCellHeight = baseImage.height / rows;
+        const colWidths = new Array(cols).fill(baseCellWidth);
+        const rowHeights = new Array(rows).fill(baseCellHeight);
+        for (const key in projectState.cellHistory) {
+            const history = projectState.cellHistory[key];
+            if (history && history.length > 0) {
+                const [r, c] = key.split('-').map(Number);
+                const rep = history[history.length - 1];
+                colWidths[c] = Math.max(colWidths[c], rep.width);
+                rowHeights[r] = Math.max(rowHeights[r], rep.height);
+            }
+        }
+
+        let minRow = Infinity, maxRow = -1, minCol = Infinity, maxCol = -1;
+        for (const cellKey of cropSelection) {
+            const [row, col] = cellKey.split('-').map(Number);
+            minRow = Math.min(minRow, row);
+            maxRow = Math.max(maxRow, row);
+            minCol = Math.min(minCol, col);
+            maxCol = Math.max(maxCol, col);
+        }
+
+        let cropX = 0; for (let i = 0; i < minCol; i++) cropX += colWidths[i];
+        let cropY = 0; for (let i = 0; i < minRow; i++) cropY += rowHeights[i];
+        let cropWidth = 0; for (let i = minCol; i <= maxCol; i++) cropWidth += colWidths[i];
+        let cropHeight = 0; for (let i = minRow; i <= maxRow; i++) cropHeight += rowHeights[i];
+
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = cropWidth;
+        tempCanvas.height = cropHeight;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.drawImage(canvas, cropX, cropY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+        
+        const newDataUrl = tempCanvas.toDataURL('image/png');
+        projectState.baseImageSrc = newDataUrl;
+        baseImage = await loadImage(newDataUrl);
+
+        projectState.cellHistory = {};
+        isCropMode = false;
+        cropModeToggle.checked = false;
+        cropSelection.clear();
+        cropSelectionBtn.classList.add('hidden');
+        cropSelectionBtn.disabled = true;
+
+        await drawCanvas(false);
+    }
 
     // --- EVENT HANDLERS & INITIALIZATION ---
     function init() {
-        const handleCellReplacement = (file) => {
-            if (!file || !activeCell) return;
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const img = new Image();
-                img.onload = () => {
-                    const cellKey = `${activeCell.row}-${activeCell.col}`;
-                    if (!projectState.cellHistory[cellKey]) {
-                        projectState.cellHistory[cellKey] = [];
-                    }
-                    projectState.cellHistory[cellKey].push({
-                        src: e.target.result,
-                        width: img.width,
-                        height: img.height,
-                        prompt: 'Manual Upload'
-                    });
-                    projectState.metadata.dateModified = new Date().toISOString();
-                    drawCanvas();
-                };
-                img.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
-            hideCellActionModal();
-        };
-
-        loadProjectInput.addEventListener('change', (event) => {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = async (e) => {
-                try {
-                    const loadedState = JSON.parse(e.target.result);
-                    if (loadedState.cellReplacements) {
-                        loadedState.cellHistory = {};
-                        for (const key in loadedState.cellReplacements) {
-                            loadedState.cellHistory[key] = [{
-                                ...loadedState.cellReplacements[key],
-                                prompt: loadedState.metadata?.prompts?.[key] || 'Imported'
-                            }];
-                        }
-                        delete loadedState.cellReplacements;
-                        if (loadedState.metadata) delete loadedState.metadata.prompts;
-                    }
-                    if (!loadedState.metadata.promptAssists) {
-                        loadedState.metadata.promptAssists = [];
-                    }
-                    projectState = loadedState;
-                    if (projectState.baseImageSrc) {
-                        baseImage = await loadImage(projectState.baseImageSrc);
-                    }
-                    gridSelect.value = `${projectState.gridConfig.cols}x${projectState.gridConfig.rows}`;
-                    updateUI();
-                    welcomeScreen.classList.add('hidden');
-                    editorView.classList.remove('hidden');
-                } catch (error) {
-                    alert('Failed to load project file. It may be corrupted.');
-                    console.error(error);
-                }
-            };
-            reader.readAsText(file);
-        });
-
-        uploadBaseImageBtn.addEventListener('click', () => baseImageInput.click());
-        baseImageInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (ev) => initializeAppWithImage(ev.target.result, projectState.ui.apiKey);
-            reader.readAsDataURL(file);
-        });
-
-        loadProjectBtnWelcome.addEventListener('click', () => loadProjectInput.click());
-        apiKeyInput.addEventListener('input', (e) => projectState.ui.apiKey = e.target.value);
-        
-        // UPDATED: Grid change handler
-        gridSelect.addEventListener('change', async () => {
-            // "Flatten" the current canvas to become the new base image
-            await drawCanvas(true); // Draw without grid
-            const newDataUrl = canvas.toDataURL('image/png');
-            projectState.baseImageSrc = newDataUrl;
-            baseImage = await loadImage(newDataUrl);
-
-            // Reset grid and history
-            const [cols, rows] = gridSelect.value.split('x').map(Number);
-            projectState.gridConfig = { rows, cols };
-            projectState.cellHistory = {};
-            
-            // Redraw with the new grid
-            await drawCanvas(false);
-        });
-
-        previewToggle.addEventListener('change', (e) => { projectState.ui.showGrid = !e.target.checked; drawCanvas(); });
-        canvas.addEventListener('click', (event) => {
+        const handleCellClick = (event) => {
             if (!baseImage) return;
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width;
@@ -451,7 +414,135 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 cumulativeY += rowHeights[row];
             }
+        };
+        
+        const handleCropSelection = (event) => {
+            if (!baseImage) return;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (event.clientX - rect.left) * scaleX;
+            const y = (event.clientY - rect.top) * scaleY;
+            const { rows, cols } = projectState.gridConfig;
+            const colWidths = new Array(cols).fill(baseImage.width / cols);
+            const rowHeights = new Array(rows).fill(baseImage.height / rows);
+            for (const key in projectState.cellHistory) {
+                const history = projectState.cellHistory[key];
+                if (history && history.length > 0) {
+                    const [r, c] = key.split('-').map(Number);
+                    const rep = history[history.length - 1];
+                    colWidths[c] = Math.max(colWidths[c], rep.width);
+                    rowHeights[r] = Math.max(rowHeights[r], rep.height);
+                }
+            }
+            let cumulativeY = 0;
+            for (let row = 0; row < rows; row++) {
+                let cumulativeX = 0;
+                for (let col = 0; col < cols; col++) {
+                    const cellW = colWidths[col];
+                    const cellH = rowHeights[row];
+                    if (x >= cumulativeX && x <= cumulativeX + cellW && y >= cumulativeY && y <= cumulativeY + cellH) {
+                        const cellKey = `${row}-${col}`;
+                        if (cropSelection.has(cellKey)) { cropSelection.delete(cellKey); } 
+                        else { cropSelection.add(cellKey); }
+                        cropSelectionBtn.disabled = cropSelection.size === 0;
+                        drawCanvas();
+                        return;
+                    }
+                    cumulativeX += cellW;
+                }
+                cumulativeY += rowHeights[row];
+            }
+        };
+
+        const handleCellReplacement = (file) => {
+            if (!file || !activeCell) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const cellKey = `${activeCell.row}-${activeCell.col}`;
+                    if (!projectState.cellHistory[cellKey]) { projectState.cellHistory[cellKey] = []; }
+                    projectState.cellHistory[cellKey].push({ src: e.target.result, width: img.width, height: img.height, prompt: 'Manual Upload' });
+                    projectState.metadata.dateModified = new Date().toISOString();
+                    drawCanvas();
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+            hideCellActionModal();
+        };
+
+        loadProjectInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const loadedState = JSON.parse(e.target.result);
+                    if (loadedState.cellReplacements) {
+                        loadedState.cellHistory = {};
+                        for (const key in loadedState.cellReplacements) {
+                            loadedState.cellHistory[key] = [{ ...loadedState.cellReplacements[key], prompt: loadedState.metadata?.prompts?.[key] || 'Imported' }];
+                        }
+                        delete loadedState.cellReplacements;
+                        if (loadedState.metadata) delete loadedState.metadata.prompts;
+                    }
+                    if (!loadedState.metadata.promptAssists) { loadedState.metadata.promptAssists = []; }
+                    projectState = loadedState;
+                    if (projectState.baseImageSrc) { baseImage = await loadImage(projectState.baseImageSrc); }
+                    gridSelect.value = `${projectState.gridConfig.cols}x${projectState.gridConfig.rows}`;
+                    updateUI();
+                    welcomeScreen.classList.add('hidden');
+                    editorView.classList.remove('hidden');
+                } catch (error) {
+                    alert('Failed to load project file. It may be corrupted.');
+                    console.error(error);
+                }
+            };
+            reader.readAsText(file);
         });
+
+        uploadBaseImageBtn.addEventListener('click', () => baseImageInput.click());
+        baseImageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => initializeAppWithImage(ev.target.result, projectState.ui.apiKey);
+            reader.readAsDataURL(file);
+        });
+
+        loadProjectBtnWelcome.addEventListener('click', () => loadProjectInput.click());
+        apiKeyInput.addEventListener('input', (e) => projectState.ui.apiKey = e.target.value);
+        gridSelect.addEventListener('change', async () => {
+            await drawCanvas(true);
+            const newDataUrl = canvas.toDataURL('image/png');
+            projectState.baseImageSrc = newDataUrl;
+            baseImage = await loadImage(newDataUrl);
+            const [cols, rows] = gridSelect.value.split('x').map(Number);
+            projectState.gridConfig = { rows, cols };
+            projectState.cellHistory = {};
+            await drawCanvas(false);
+        });
+        previewToggle.addEventListener('change', (e) => { projectState.ui.showGrid = !e.target.checked; drawCanvas(); });
+        
+        canvas.addEventListener('click', (event) => {
+            if (isCropMode) { handleCropSelection(event); } 
+            else { handleCellClick(event); }
+        });
+        
+        cropModeToggle.addEventListener('change', (e) => {
+            isCropMode = e.target.checked;
+            if (isCropMode) {
+                cropSelectionBtn.classList.remove('hidden');
+                cropSelectionBtn.disabled = cropSelection.size === 0;
+            } else {
+                cropSelectionBtn.classList.add('hidden');
+                cropSelection.clear();
+            }
+            drawCanvas();
+        });
+        cropSelectionBtn.addEventListener('click', performCrop);
 
         saveProjectBtn.addEventListener('click', saveProject);
         exportImageBtn.addEventListener('click', exportImage);
@@ -466,9 +557,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const history = projectState.cellHistory[cellKey];
                 if (history && history.length > 0) {
                     history.pop();
-                    if (history.length === 0) {
-                        delete projectState.cellHistory[cellKey];
-                    }
+                    if (history.length === 0) { delete projectState.cellHistory[cellKey]; }
                 }
                 drawCanvas();
             }
