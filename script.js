@@ -49,7 +49,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const generateAiBtn = document.getElementById('generate-ai-btn');
     const undoBtn = document.getElementById('undo-btn');
     const redoBtn = document.getElementById('redo-btn');
-    // All other getElementById calls are assumed here for brevity...
+    const generateBaseImageBtn = document.getElementById('generate-base-image-btn');
+    const baseImageModal = document.getElementById('base-image-modal');
+    const baseImagePromptInput = document.getElementById('base-image-prompt-input');
+    const baseImageApiKeyInput = document.getElementById('base-image-api-key-input');
+    const generateBaseBtn = document.getElementById('generate-base-btn');
+    const cancelBaseBtn = document.getElementById('cancel-base-btn');
+    const generateBaseSpinner = document.getElementById('generate-base-spinner');
+    const generateBaseBtnText = document.getElementById('generate-base-btn-text');
+    const cellActionModal = document.getElementById('cell-action-modal');
+    const clearCellBtn = document.getElementById('clear-cell-btn');
 
 
     // --- UNDO/REDO LOGIC ---
@@ -202,6 +211,54 @@ document.addEventListener('DOMContentLoaded', () => {
         apiKeyInput.value = projectState.ui.apiKey;
         await drawCanvas();
     }
+
+    // --- GEMINI API LOGIC ---
+    const handleBaseImageGeneration = async () => {
+        const prompt = baseImagePromptInput.value;
+        const apiKey = baseImageApiKeyInput.value;
+        if (!prompt || !apiKey) {
+            alert('Please provide a prompt and your API key.');
+            return;
+        }
+
+        setBaseGenLoading(true);
+
+        try {
+            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { responseModalities: ['IMAGE'] },
+            };
+            
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(`API Error: ${error.error.message}`);
+            }
+
+            const result = await response.json();
+            const newImageBase64 = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+
+            if (!newImageBase64) {
+                throw new Error("API did not return an image. The prompt might be unsafe.");
+            }
+
+            const newImageSrc = `data:image/png;base64,${newImageBase64}`;
+            initializeAppWithImage(newImageSrc, apiKey);
+            hideBaseImageModal();
+
+        } catch (error) {
+            console.error("Base Image Generation Failed:", error);
+            alert("Base Image Generation Failed: " + error.message);
+        } finally {
+            setBaseGenLoading(false);
+        }
+    };
     
     async function performCrop() {
         if (cropSelection.size === 0) return;
@@ -295,6 +352,15 @@ document.addEventListener('DOMContentLoaded', () => {
         await drawCanvas();
     }
 
+    // --- MODAL & UI HELPERS ---
+    const showBaseImageModal = () => baseImageModal.classList.remove('hidden');
+    const hideBaseImageModal = () => baseImageModal.classList.add('hidden');
+    const setBaseGenLoading = (isLoading) => {
+        generateBaseBtn.disabled = isLoading;
+        generateBaseBtnText.style.display = isLoading ? 'none' : 'inline';
+        generateBaseSpinner.style.display = isLoading ? 'inline-block' : 'none';
+    };
+
     // --- INITIALIZATION & EVENT HANDLERS ---
     function initializeAppWithImage(imageSrc, apiKey = '') {
         projectState.baseImageSrc = imageSrc;
@@ -328,15 +394,19 @@ document.addEventListener('DOMContentLoaded', () => {
             projectState.cellHistory = {};
             await drawCanvas(false);
         });
+        
+        // This is the restored event listener for the "Start with a Prompt" button
+        generateBaseImageBtn.addEventListener('click', showBaseImageModal);
+        cancelBaseBtn.addEventListener('click', hideBaseImageModal);
+        generateBaseBtn.addEventListener('click', handleBaseImageGeneration);
 
         generateAiBtn.addEventListener('click', () => {
             saveStateForUndo('AI Generate');
-            // handleAIGeneration(); This is now called inside the saveState function after prompt
+            // handleAIGeneration(); This is now called after prompt is confirmed in the modal logic
         });
 
         cropSelectionBtn.addEventListener('click', performCrop);
 
-        // ... other event listeners
         uploadBaseImageBtn.addEventListener('click', () => document.getElementById('base-image-input').click());
         document.getElementById('base-image-input').addEventListener('change', (e) => {
             const file = e.target.files[0];
@@ -344,6 +414,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const reader = new FileReader();
             reader.onload = (ev) => initializeAppWithImage(ev.target.result, projectState.ui.apiKey);
             reader.readAsDataURL(file);
+        });
+
+        clearCellBtn.addEventListener('click', () => {
+            if (activeCell) {
+                const cellKey = `${activeCell.row}-${activeCell.col}`;
+                if (projectState.cellHistory[cellKey] && projectState.cellHistory[cellKey].length > 0) {
+                    saveStateForUndo('Undo Cell Generation');
+                    projectState.cellHistory[cellKey].pop();
+                    drawCanvas();
+                }
+            }
+             // Hide modal logic might be needed here or handled by a separate close button
         });
         
         updateUndoRedoButtons();
