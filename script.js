@@ -234,6 +234,7 @@ document.addEventListener('DOMContentLoaded', () => {
         projectTitleDisplay.textContent = projectState.metadata.title;
         previewToggle.checked = !projectState.ui.showGrid;
         apiKeyInput.value = projectState.ui.apiKey;
+        gridSelect.value = `${projectState.gridConfig.cols}x${projectState.gridConfig.rows}`;
         await drawCanvas();
     }
 
@@ -457,13 +458,19 @@ document.addEventListener('DOMContentLoaded', () => {
             clearCellBtn.textContent = 'Undo Last Gen';
         }
         
+        // Make modal visible so clientWidth is available for canvas sizing
+        cellActionModal.classList.remove('hidden');
+
         const previewCtx = cellPreviewCanvas.getContext('2d');
         const base64 = await getCellAsBase64(activeCell);
-        const img = await loadImage(`data:image/png;base64,${base64}`);
-        const aspect = img.width / img.height;
-        cellPreviewCanvas.height = cellPreviewCanvas.clientWidth / aspect;
-        cellPreviewCanvas.width = cellPreviewCanvas.clientWidth;
-        previewCtx.drawImage(img, 0, 0, cellPreviewCanvas.width, cellPreviewCanvas.height);
+        previewCtx.clearRect(0, 0, cellPreviewCanvas.width, cellPreviewCanvas.height);
+        if (base64) {
+            const img = await loadImage(`data:image/png;base64,${base64}`);
+            const aspect = img.width / img.height;
+            cellPreviewCanvas.width = cellPreviewCanvas.clientWidth;
+            cellPreviewCanvas.height = cellPreviewCanvas.width / aspect;
+            previewCtx.drawImage(img, 0, 0, cellPreviewCanvas.width, cellPreviewCanvas.height);
+        }
 
         otherPromptsList.innerHTML = '';
         let hasOtherPrompts = false;
@@ -480,14 +487,127 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!hasOtherPrompts) {
             otherPromptsList.innerHTML = '<p class="text-gray-400 p-1">No other prompts yet.</p>';
         }
-
-        cellActionModal.classList.remove('hidden');
     };
      const hideCellActionModal = () => cellActionModal.classList.add('hidden');
      const setAILoading = (isLoading) => {
         generateAiBtn.disabled = isLoading;
         generateAiBtnText.style.display = isLoading ? 'none' : 'inline';
         generateAiSpinner.style.display = isLoading ? 'inline-block' : 'none';
+    };
+
+    // --- METADATA MODAL ---
+    const showMetadataModal = () => {
+        metaTitle.value = projectState.metadata.title;
+        metaDesc.value = projectState.metadata.description;
+        metaAuthor.value = projectState.metadata.author;
+        metaVersion.value = projectState.metadata.versionNote;
+        metadataModal.classList.remove('hidden');
+    };
+    const hideMetadataModal = () => metadataModal.classList.add('hidden');
+    const saveMetadata = () => {
+        saveStateForUndo('Update Metadata');
+        projectState.metadata.title = metaTitle.value || 'Untitled Project';
+        projectState.metadata.description = metaDesc.value;
+        projectState.metadata.author = metaAuthor.value;
+        projectState.metadata.versionNote = metaVersion.value;
+        projectState.metadata.dateModified = new Date().toISOString();
+        updateUI();
+        hideMetadataModal();
+    };
+
+    // --- PROMPT ASSIST MODAL ---
+    const showPromptAssistModal = () => {
+        renderPromptAssists();
+        promptAssistModal.classList.remove('hidden');
+    };
+    const hidePromptAssistModal = () => promptAssistModal.classList.add('hidden');
+    const renderPromptAssists = () => {
+        promptAssistList.innerHTML = '';
+        if (projectState.metadata.promptAssists.length === 0) {
+            promptAssistList.innerHTML = '<p class="text-gray-400 text-sm">No assists added yet.</p>';
+            return;
+        }
+        projectState.metadata.promptAssists.forEach((assist, index) => {
+            const div = document.createElement('div');
+            div.className = 'flex items-center justify-between bg-gray-700 p-2 rounded';
+            const label = document.createElement('label');
+            label.className = 'flex items-center text-sm text-gray-200 flex-grow';
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = assist.enabled;
+            checkbox.className = 'h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 bg-gray-600 mr-3';
+            checkbox.onchange = () => { projectState.metadata.promptAssists[index].enabled = checkbox.checked; };
+            label.appendChild(checkbox);
+            label.append(assist.text);
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = 'Remove';
+            deleteBtn.className = 'btn btn-danger btn-sm text-xs';
+            deleteBtn.onclick = () => {
+                projectState.metadata.promptAssists.splice(index, 1);
+                renderPromptAssists();
+            };
+            div.appendChild(label);
+            div.appendChild(deleteBtn);
+            promptAssistList.appendChild(div);
+        });
+    };
+    const addPromptAssist = () => {
+        const text = newAssistInput.value.trim();
+        if (text) {
+            projectState.metadata.promptAssists.push({ text, enabled: true });
+            newAssistInput.value = '';
+            renderPromptAssists();
+        }
+    };
+
+    // --- PROJECT SAVE/LOAD/EXPORT ---
+    const saveProject = () => {
+        projectState.ui.apiKey = apiKeyInput.value;
+        const projectData = JSON.stringify(projectState, null, 2);
+        const blob = new Blob([projectData], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const safeTitle = projectState.metadata.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        a.download = `${safeTitle || 'project'}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    const loadProject = (file) => {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const newState = JSON.parse(e.target.result);
+                if (!newState.metadata || !newState.baseImageSrc) throw new Error('Invalid project file format.');
+                projectState = newState;
+                baseImage = await loadImage(projectState.baseImageSrc);
+                welcomeScreen.classList.add('hidden');
+                editorView.classList.remove('hidden');
+                stateHistory = [];
+                historyIndex = -1;
+                saveStateForUndo('Load Project');
+                await updateUI();
+            } catch (error) {
+                alert(`Failed to load project: ${error.message}`);
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    const exportImage = async () => {
+        await drawCanvas(true);
+        const dataUrl = canvas.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        const safeTitle = projectState.metadata.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        a.download = `${safeTitle || 'export'}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        await drawCanvas(false);
     };
 
     // --- INITIALIZATION & EVENT HANDLERS ---
@@ -522,7 +642,46 @@ document.addEventListener('DOMContentLoaded', () => {
             projectState.cellHistory = {};
             await drawCanvas(false);
         });
+
+        previewToggle.addEventListener('change', () => {
+            projectState.ui.showGrid = !previewToggle.checked;
+            drawCanvas();
+        });
+
+        cropModeToggle.addEventListener('change', (e) => {
+            isCropMode = e.target.checked;
+            // If we turn crop mode off, clear the selection and hide the button
+            if (!isCropMode) {
+                cropSelection.clear();
+                cropSelectionBtn.classList.add('hidden');
+                drawCanvas(); // Redraw to remove selection overlay
+            }
+        });
         
+        // Project Management & Modals
+        saveProjectBtn.addEventListener('click', saveProject);
+        exportImageBtn.addEventListener('click', exportImage);
+        loadProjectBtnEditor.addEventListener('click', () => document.getElementById('load-project-input').click());
+        loadProjectBtnWelcome.addEventListener('click', () => document.getElementById('load-project-input').click());
+        document.getElementById('load-project-input').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                loadProject(file);
+                e.target.value = null; // Reset input
+            }
+        });
+
+        // Metadata Modal
+        editMetadataBtn.addEventListener('click', showMetadataModal);
+        saveMetadataBtn.addEventListener('click', saveMetadata);
+        cancelMetadataBtn.addEventListener('click', hideMetadataModal);
+
+        // Prompt Assist Modal
+        promptAssistBtn.addEventListener('click', showPromptAssistModal);
+        addAssistBtn.addEventListener('click', addPromptAssist);
+        newAssistInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addPromptAssist(); });
+        closeAssistModalBtn.addEventListener('click', hidePromptAssistModal);
+
         generateBaseImageBtn.addEventListener('click', showBaseImageModal);
         cancelBaseBtn.addEventListener('click', hideBaseImageModal);
         generateBaseBtn.addEventListener('click', handleBaseImageGeneration);
@@ -622,4 +781,3 @@ document.addEventListener('DOMContentLoaded', () => {
     
     init();
 });
-
