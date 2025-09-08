@@ -52,12 +52,11 @@ canvas {
     width: 100%;
 }
 
-/* New style to constrain the preview canvas */
 #cell-preview-canvas {
-    max-height: 25vh; /* Use viewport height to keep it responsive */
+    max-height: 25vh;
     width: auto;
     height: auto;
-    margin: 0 auto; /* Center the canvas */
+    margin: 0 auto;
 }
 
 .btn {
