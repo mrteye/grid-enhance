@@ -9,7 +9,7 @@ This project is the answer. It's a next-generation image editor that uses genera
 ### **▶️ Live Demo & Video**
 
 *   **Live Application:** [https://grid-enhance.vercel.app](https://grid-enhance.vercel.app/)
-*   **Video Demo (2 mins):** [https://your-video-link.com](https://www.google.com/search?q=https://your-video-link.com) *(\<-- Replace with your public video link)*
+*   **Video Demo (2 mins):** [https://youtu.be/jeiIUsZ55No](https://youtu.be/jeiIUsZ55No)
 
 -----
 
