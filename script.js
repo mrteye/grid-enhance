@@ -8,8 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
             dateCreated: null,
             dateModified: null,
             versionNote: 'Initial version',
-            // `prompts` is now deprecated and merged into cellHistory
-            promptAssists: [ // Default prompt assists
+            promptAssists: [ 
                 { text: '4k, detailed, high resolution', enabled: true },
                 { text: 'cinematic lighting', enabled: false },
                 { text: 'watercolor painting style', enabled: false },
@@ -17,8 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         baseImageSrc: null,
         gridConfig: { rows: 2, cols: 2 },
-        // cellReplacements is now cellHistory to support undo functionality
-        cellHistory: {}, // key: "row-col", value: [{ src, width, height, prompt }, ...]
+        cellHistory: {}, 
         ui: { showGrid: true, apiKey: '' }
     };
 
@@ -68,20 +66,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const newAssistInput = document.getElementById('new-assist-input');
     const addAssistBtn = document.getElementById('add-assist-btn');
     const closeAssistModalBtn = document.getElementById('close-assist-modal-btn');
-
+    // New elements for base image generation
+    const generateBaseImageBtn = document.getElementById('generate-base-image-btn');
+    const baseImageModal = document.getElementById('base-image-modal');
+    const basePromptInput = document.getElementById('base-prompt-input');
+    const baseApiKeyInput = document.getElementById('base-api-key-input');
+    const generateBtn = document.getElementById('generate-btn');
+    const generateBtnText = document.getElementById('generate-btn-text');
+    const generateSpinner = document.getElementById('generate-spinner');
+    const cancelBaseGenBtn = document.getElementById('cancel-base-gen-btn');
 
     // --- CORE LOGIC & DRAWING ---
     async function drawCanvas(isExporting = false) {
         if (!baseImage) return;
-
         const { rows, cols } = projectState.gridConfig;
         const baseCellWidth = baseImage.width / cols;
         const baseCellHeight = baseImage.height / rows;
-
         const colWidths = new Array(cols).fill(baseCellWidth);
         const rowHeights = new Array(rows).fill(baseCellHeight);
 
-        // Calculate max dimensions based on the latest history entry for each cell
         for (const key in projectState.cellHistory) {
             const history = projectState.cellHistory[key];
             if (history && history.length > 0) {
@@ -94,7 +97,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const totalWidth = colWidths.reduce((sum, w) => sum + w, 0);
         const totalHeight = rowHeights.reduce((sum, h) => sum + h, 0);
-
         canvas.width = totalWidth;
         canvas.height = totalHeight;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -116,17 +118,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     const sx = col * baseCellWidth;
                     const sy = row * baseCellHeight;
-                    
                     if (cellW > baseCellWidth || cellH > baseCellHeight) {
                         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
                         ctx.fillRect(currentX, currentY, cellW, cellH);
                         const centeredX = currentX + (cellW - baseCellWidth) / 2;
                         const centeredY = currentY + (cellH - baseCellHeight) / 2;
                         ctx.drawImage(baseImage, sx, sy, baseCellWidth, baseCellHeight, centeredX, centeredY, baseCellWidth, baseCellHeight);
-                        ctx.font = '16px Inter';
-                        ctx.fillStyle = 'white';
-                        ctx.textAlign = 'center';
-                        ctx.fillText('Enhance this section', currentX + cellW / 2, currentY + cellH / 2);
                     } else {
                         ctx.drawImage(baseImage, sx, sy, baseCellWidth, baseCellHeight, currentX, currentY, cellW, cellH);
                     }
@@ -156,26 +153,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- GEMINI API LOGIC ---
-    async function handleAIGeneration() {
-        if (!activeCell || !projectState.ui.apiKey) {
-            alert('Please enter your Google AI API Key in the control panel.');
+    async function handleBaseImageGeneration() {
+        const prompt = basePromptInput.value.trim();
+        const apiKey = baseApiKeyInput.value.trim();
+        if (!prompt || !apiKey) {
+            alert('Please provide a prompt and your API key.');
             return;
         }
 
-        setAILoading(true);
-
+        setBaseGenLoading(true);
         try {
-            let finalPrompt = cellPromptInput.value;
-            const enabledAssists = projectState.metadata.promptAssists.filter(a => a.enabled).map(a => a.text);
-            if(enabledAssists.length > 0) {
-                finalPrompt += '; ' + enabledAssists.join('; ');
-            }
-
-            const cellImageBase64 = await getCellAsBase64(activeCell);
-
-            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${projectState.ui.apiKey}`;
+            // UPDATED: Switched to the hackathon-friendly model
+            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${apiKey}`;
             const payload = {
-                contents: [{ parts: [ { text: finalPrompt }, { inlineData: { mimeType: "image/png", data: cellImageBase64 } } ] }],
+                contents: [{ parts: [{ text: prompt }] }],
                 generationConfig: { responseModalities: ['IMAGE'] },
             };
 
@@ -187,33 +178,70 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!response.ok) {
                 const error = await response.json();
-                throw new Error(`API Error: ${error.error.message}`);
+                throw new Error(`API Error: ${error.error.message || 'Unknown error'}`);
             }
 
             const result = await response.json();
+            // UPDATED: Changed response parsing to match the new model
+            const base64Data = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
+            if (!base64Data) throw new Error("API did not return an image. The prompt might be unsafe.");
+
+            const newImageSrc = `data:image/png;base64,${base64Data}`;
+            initializeAppWithImage(newImageSrc, apiKey);
+
+        } catch (error) {
+            console.error("Base Image Generation Failed:", error);
+            alert("Base Image Generation Failed: " + error.message);
+        } finally {
+            setBaseGenLoading(false);
+        }
+    }
+
+    async function handleAIGeneration() {
+        if (!activeCell || !projectState.ui.apiKey) {
+            alert('Please enter your Google AI API Key in the control panel.');
+            return;
+        }
+        setAILoading(true);
+        try {
+            let finalPrompt = cellPromptInput.value;
+            const enabledAssists = projectState.metadata.promptAssists.filter(a => a.enabled).map(a => a.text);
+            if (enabledAssists.length > 0) {
+                finalPrompt += '; ' + enabledAssists.join('; ');
+            }
+            const cellImageBase64 = await getCellAsBase64(activeCell);
+            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image-preview:generateContent?key=${projectState.ui.apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: finalPrompt }, { inlineData: { mimeType: "image/png", data: cellImageBase64 } }] }],
+                generationConfig: { responseModalities: ['IMAGE'] },
+            };
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(`API Error: ${error.error.message}`);
+            }
+            const result = await response.json();
             const newImageBase64 = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData?.data;
             if (!newImageBase64) throw new Error("API did not return an image. The prompt might be unsafe.");
-
             const newImageSrc = `data:image/png;base64,${newImageBase64}`;
             const img = await loadImage(newImageSrc);
             const cellKey = `${activeCell.row}-${activeCell.col}`;
-            
-            // Push the new generation to the cell's history
             if (!projectState.cellHistory[cellKey]) {
                 projectState.cellHistory[cellKey] = [];
             }
             projectState.cellHistory[cellKey].push({
-                src: newImageSrc, 
-                width: img.width, 
+                src: newImageSrc,
+                width: img.width,
                 height: img.height,
-                prompt: cellPromptInput.value // Store the base prompt
+                prompt: cellPromptInput.value
             });
-
             projectState.metadata.dateModified = new Date().toISOString();
-
             await drawCanvas();
             hideCellActionModal();
-
         } catch (error) {
             console.error("AI Generation Failed:", error);
             alert("AI Generation Failed: " + error.message);
@@ -222,7 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- SAVE, LOAD, EXPORT FUNCTIONS ---
+    // --- SAVE, LOAD, EXPORT ---
     function saveProject() {
         projectState.metadata.dateModified = new Date().toISOString();
         const projectJson = JSON.stringify(projectState, null, 2);
@@ -237,7 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
         URL.revokeObjectURL(url);
     }
     async function exportImage() {
-        await drawCanvas(true); 
+        await drawCanvas(true);
         const dataUrl = canvas.toDataURL('image/png');
         const a = document.createElement('a');
         a.href = dataUrl;
@@ -248,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await drawCanvas(false);
     }
 
-    // --- UTILITY FUNCTIONS ---
+    // --- UTILITIES ---
     function loadImage(src) {
         return new Promise((resolve, reject) => {
             const img = new Image();
@@ -263,7 +291,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const tempCtx = tempCanvas.getContext('2d');
         const cellKey = `${cell.row}-${cell.col}`;
         const history = projectState.cellHistory[cellKey];
-
         if (history && history.length > 0) {
             const latestReplacement = history[history.length - 1];
             const img = await loadImage(latestReplacement.src);
@@ -283,6 +310,22 @@ document.addEventListener('DOMContentLoaded', () => {
         return tempCanvas.toDataURL('image/png').split(',')[1];
     }
     
+    function initializeAppWithImage(imageSrc, apiKey = '') {
+        projectState.baseImageSrc = imageSrc;
+        projectState.ui.apiKey = apiKey;
+        projectState.metadata.dateCreated = new Date().toISOString();
+        projectState.cellHistory = {};
+        baseImage = new Image();
+        baseImage.onload = () => {
+            hideBaseImageModal();
+            welcomeScreen.classList.add('hidden');
+            editorView.classList.remove('hidden');
+            editorView.classList.add('app-container');
+            updateUI();
+        };
+        baseImage.src = imageSrc;
+    }
+
     // --- EVENT HANDLERS & INITIALIZATION ---
     function init() {
         const handleCellReplacement = (file) => {
@@ -317,9 +360,7 @@ document.addEventListener('DOMContentLoaded', () => {
             reader.onload = async (e) => {
                 try {
                     const loadedState = JSON.parse(e.target.result);
-                    
-                    // --- Backwards Compatibility Migration ---
-                    if (loadedState.cellReplacements || loadedState.metadata.prompts) {
+                    if (loadedState.cellReplacements) {
                         loadedState.cellHistory = {};
                         for (const key in loadedState.cellReplacements) {
                             loadedState.cellHistory[key] = [{
@@ -331,13 +372,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (loadedState.metadata) delete loadedState.metadata.prompts;
                     }
                     if (!loadedState.metadata.promptAssists) {
-                         loadedState.metadata.promptAssists = [
-                            { text: '4k, detailed, high resolution', enabled: true },
-                            { text: 'cinematic lighting', enabled: false },
-                         ];
+                        loadedState.metadata.promptAssists = [];
                     }
-                    // --- End Migration ---
-
                     projectState = loadedState;
                     if (projectState.baseImageSrc) {
                         baseImage = await loadImage(projectState.baseImageSrc);
@@ -346,7 +382,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     updateUI();
                     welcomeScreen.classList.add('hidden');
                     editorView.classList.remove('hidden');
-                    editorView.classList.add('app-container');
                 } catch (error) {
                     alert('Failed to load project file. It may be corrupted.');
                     console.error(error);
@@ -356,27 +391,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         uploadBaseImageBtn.addEventListener('click', () => baseImageInput.click());
-        loadProjectBtnWelcome.addEventListener('click', () => loadProjectInput.click());
         baseImageInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
             const reader = new FileReader();
-            reader.onload = (ev) => {
-                projectState.baseImageSrc = ev.target.result;
-                projectState.metadata.dateCreated = new Date().toISOString();
-                // Reset history on new image upload
-                projectState.cellHistory = {}; 
-                baseImage = new Image();
-                baseImage.onload = () => {
-                    welcomeScreen.classList.add('hidden');
-                    editorView.classList.remove('hidden');
-                    editorView.classList.add('app-container');
-                    updateUI();
-                };
-                baseImage.src = projectState.baseImageSrc;
-            };
+            reader.onload = (ev) => initializeAppWithImage(ev.target.result, projectState.ui.apiKey);
             reader.readAsDataURL(file);
         });
+
+        loadProjectBtnWelcome.addEventListener('click', () => loadProjectInput.click());
         apiKeyInput.addEventListener('input', (e) => projectState.ui.apiKey = e.target.value);
         gridSelect.addEventListener('change', () => {
             const [cols, rows] = gridSelect.value.split('x').map(Number);
@@ -396,13 +419,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const colWidths = new Array(cols).fill(baseImage.width / cols);
             const rowHeights = new Array(rows).fill(baseImage.height / rows);
             for (const key in projectState.cellHistory) {
-                 const history = projectState.cellHistory[key];
-                 if (history && history.length > 0) {
+                const history = projectState.cellHistory[key];
+                if (history && history.length > 0) {
                     const [r, c] = key.split('-').map(Number);
                     const rep = history[history.length - 1];
                     colWidths[c] = Math.max(colWidths[c], rep.width);
                     rowHeights[r] = Math.max(rowHeights[r], rep.height);
-                 }
+                }
             }
             let cumulativeY = 0;
             for (let row = 0; row < rows; row++) {
@@ -428,16 +451,12 @@ document.addEventListener('DOMContentLoaded', () => {
         generateAiBtn.addEventListener('click', handleAIGeneration);
         replaceCellBtn.addEventListener('click', () => cellImageInput.click());
         cellImageInput.addEventListener('change', (e) => handleCellReplacement(e.target.files[0]));
-        
-        // --- UPDATED Clear Button Logic ---
         clearCellBtn.addEventListener('click', () => {
-            if(activeCell) {
+            if (activeCell) {
                 const cellKey = `${activeCell.row}-${activeCell.col}`;
                 const history = projectState.cellHistory[cellKey];
                 if (history && history.length > 0) {
-                    // Pop the last entry from the history array
                     history.pop();
-                    // If the history is now empty, remove the key to clean up state
                     if (history.length === 0) {
                         delete projectState.cellHistory[cellKey];
                     }
@@ -446,7 +465,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             hideCellActionModal();
         });
-
         cancelCellActionBtn.addEventListener('click', hideCellActionModal);
         saveMetadataBtn.addEventListener('click', () => {
             projectState.metadata.title = metaTitle.value;
@@ -458,7 +476,6 @@ document.addEventListener('DOMContentLoaded', () => {
             hideMetadataModal();
         });
         cancelMetadataBtn.addEventListener('click', hideMetadataModal);
-        
         promptAssistBtn.addEventListener('click', showPromptAssistModal);
         closeAssistModalBtn.addEventListener('click', hidePromptAssistModal);
         addAssistBtn.addEventListener('click', () => {
@@ -469,47 +486,43 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderPromptAssists();
             }
         });
+        generateBaseImageBtn.addEventListener('click', showBaseImageModal);
+        cancelBaseGenBtn.addEventListener('click', hideBaseImageModal);
+        generateBtn.addEventListener('click', handleBaseImageGeneration);
     }
 
-    // --- Helper functions for modals and UI state ---
+    // --- MODAL & UI HELPERS ---
     const showCellActionModal = async () => {
         const cellKey = `${activeCell.row}-${activeCell.col}`;
         const history = projectState.cellHistory[cellKey];
         const latestEntry = (history && history.length > 0) ? history[history.length - 1] : null;
-
         cellActionTitle.textContent = `Actions for Cell (R:${activeCell.row + 1}, C:${activeCell.col + 1})`;
-        // Show the prompt of the latest version, or empty if none
         cellPromptInput.value = latestEntry?.prompt === 'Manual Upload' ? '' : latestEntry?.prompt || '';
-        // The button is now an "Undo" button, so it should be visible if there's history
-        clearCellBtn.textContent = 'Undo Last Generation';
         clearCellBtn.style.display = latestEntry ? 'block' : 'none';
-        
         const previewCtx = cellPreviewCanvas.getContext('2d');
         const base64 = await getCellAsBase64(activeCell);
         const img = await loadImage(`data:image/png;base64,${base64}`);
         cellPreviewCanvas.width = img.width;
         cellPreviewCanvas.height = img.height;
         previewCtx.drawImage(img, 0, 0);
-
         otherPromptsList.innerHTML = '';
         let hasOtherPrompts = false;
         for (const key in projectState.cellHistory) {
             const otherHistory = projectState.cellHistory[key];
             if (key !== cellKey && otherHistory && otherHistory.length > 0) {
-                 const latestPrompt = otherHistory[otherHistory.length - 1].prompt;
-                 if (latestPrompt && latestPrompt !== 'Manual Upload') {
+                const latestPrompt = otherHistory[otherHistory.length - 1].prompt;
+                if (latestPrompt && latestPrompt !== 'Manual Upload') {
                     hasOtherPrompts = true;
                     const p = document.createElement('p');
                     p.textContent = latestPrompt;
                     p.onclick = () => { cellPromptInput.value = p.textContent; };
                     otherPromptsList.appendChild(p);
-                 }
+                }
             }
         }
         if (!hasOtherPrompts) {
             otherPromptsList.innerHTML = '<p class="text-gray-400">No other prompts yet.</p>';
         }
-
         cellActionModal.classList.remove('hidden');
     };
     const hideCellActionModal = () => { cellActionModal.classList.add('hidden'); activeCell = null; };
@@ -526,7 +539,6 @@ document.addEventListener('DOMContentLoaded', () => {
         generateAiBtnText.style.display = isLoading ? 'none' : 'inline';
         generateAiSpinner.style.display = isLoading ? 'inline-block' : 'none';
     };
-    
     const renderPromptAssists = () => {
         promptAssistList.innerHTML = '';
         projectState.metadata.promptAssists.forEach((assist, index) => {
@@ -540,7 +552,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button data-index="${index}" class="text-red-400 hover:text-red-600 text-lg font-bold leading-none">&times;</button>
             `;
             promptAssistList.appendChild(assistEl);
-
             assistEl.querySelector('input').addEventListener('change', (e) => {
                 projectState.metadata.promptAssists[index].enabled = e.target.checked;
             });
@@ -555,6 +566,16 @@ document.addEventListener('DOMContentLoaded', () => {
         promptAssistModal.classList.remove('hidden');
     };
     const hidePromptAssistModal = () => { promptAssistModal.classList.add('hidden'); };
+    const showBaseImageModal = () => {
+        baseApiKeyInput.value = projectState.ui.apiKey; // Pre-fill if already entered
+        baseImageModal.classList.remove('hidden');
+    };
+    const hideBaseImageModal = () => { baseImageModal.classList.add('hidden'); };
+    const setBaseGenLoading = (isLoading) => {
+        generateBtn.disabled = isLoading;
+        generateBtnText.style.display = isLoading ? 'none' : 'inline';
+        generateSpinner.style.display = isLoading ? 'inline-block' : 'none';
+    };
 
     init();
 });
